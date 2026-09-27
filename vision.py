@@ -29,3 +29,28 @@ def read_text_from_image(image_cv2):
         return text.strip()
     except Exception:
         return ""
+
+def find_text_coordinates(image_cv2, target_text):
+    """
+    Finds the center (x, y) coordinate of a specific text string using OCR.
+    """
+    if reader is None:
+        return None
+        
+    try:
+        gray = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2GRAY)
+        # detail=1 returns bounding boxes along with text
+        results = reader.readtext(gray, detail=1)
+        
+        for (bbox, text, prob) in results:
+            if target_text.lower() in text.lower():
+                # bbox format: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+                # tl = top-left, br = bottom-right
+                tl = bbox[0]
+                br = bbox[2]
+                cx = int((tl[0] + br[0]) / 2)
+                cy = int((tl[1] + br[1]) / 2)
+                return (cx, cy)
+    except Exception:
+        pass
+    return None

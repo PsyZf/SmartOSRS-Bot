@@ -11,7 +11,7 @@ from mss import MSS
 
 # Import our new Smart modules
 from logger import logger
-from vision import read_text_from_image
+from vision import read_text_from_image, find_text_coordinates
 
 # Setup command line arguments for flexible run-case usage
 parser = argparse.ArgumentParser(description="OSRS Sand Crab Bot")
@@ -589,7 +589,17 @@ def handle_reconnect():
         except Exception as e:
             pass # Tesseract not installed or failed
         
-        # 1. Check for RED 'Click here to play' button (Welcome Screen)
+        # 1. OCR check for 'Play' text (Jagex Login or Welcome Screen)
+        play_coords = find_text_coordinates(img, "play")
+        if play_coords:
+            cx, cy = play_coords
+            print("    [*] Detected 'Play' text via OCR. Clicking...")
+            cv2.imwrite("debug_login_screen.png", img)
+            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=15)
+            time.sleep(random.gauss(6.0, 1.0))
+            continue
+            
+        # 2. Check for RED 'Click here to play' button (Welcome Screen fallback)
         red_centers = find_color_centers(img, (0, 150, 100), (10, 255, 255), min_area=3000, max_area=None)
         if not red_centers:
             red_centers = find_color_centers(img, (170, 150, 100), (180, 255, 255), min_area=3000, max_area=None)
