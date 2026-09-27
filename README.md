@@ -1,39 +1,62 @@
-# SmartCrab Framework (Beta)
+# SmartCrab OSRS
 
-Welcome to the SmartCrab Framework! This project has evolved from a simple coordinate-clicking script into a robust, vision-based automation framework designed for stability, human-like behavior, and extensibility.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
-## 🚀 Core Features & Knowledge Base
+**SmartCrab OSRS** is a next-generation, computer-vision-based automation framework for Old School RuneScape, focusing specifically on Sand Crab training. Built with OpenCV and PyTorch (EasyOCR), it features a highly resilient architecture that does not interact with the game client memory, relying entirely on visual data and humanized I/O.
 
-### 1. Vision-Based Navigation
-*   **Dynamic Minimap Tracking:** The bot no longer relies on hardcoded window offsets. It uses OpenCV to dynamically locate the exact center of the player's white dot on the minimap. You can move the RuneLite window anywhere on your screen.
-*   **Color-Coded Routing:** Uses distinct HSV color markers for flawless navigation without complex vector math:
-    *   **Magenta (`#FF00FF`):** Home Tile.
-    *   **Cyan (`#00FFFF`):** Mid-waypoint (optional).
-    *   **Blue (`#0000FF`):** Far turn-around point.
-*   **Breadcrumb Recovery:** If the bot gets lost, it will follow a trail of Black markers one-by-one until it safely returns to the main route.
+## Features
 
-### 2. Intelligent Combat & Survival
-*   **Dynamic Auto-Eat (Green Tags):** Instead of relying on hardcoded inventory slots, the bot scans the entire inventory for items highlighted with **Green Inventory Tags**. 
-*   **Obstructing Interface Failsafe:** If the bot accidentally opens the World Map or Bank (detecting the massive red 'X' in the corner), it instantly presses `Escape` to close it.
-*   **Inventory Tab Verification:** Before sipping a potion or searching for food, the bot verifies the inventory is open by clicking the Bag icon, ensuring it never gets stuck in the wrong tab.
+- **Modern GUI Launcher**: A sleek, standalone CustomTkinter interface to control the bot, configure hotkeys, and monitor logs.
+- **Computer Vision Navigation**: Navigates accurately using color-coded ground markers (via RuneLite).
+- **OCR Auto-Recovery**: Uses EasyOCR (PyTorch CPU) to read text on the login/disconnect screens and autonomously recover from 6-hour logs or connection drops.
+- **Humanized Macro Recorder**: Includes a built-in macro recording tool that captures physical mouse events and plays them back with Gaussian (randomized) delays and pixel coordinate offsets.
+- **Robust Failsafes**: Constantly monitors the HP orb color, combat timers, and screen state. If the bot gets lost or a random interface opens, it instantly auto-calibrates or forces a home-recovery path.
+- **Live Screenshot Stream**: The GUI actively displays what the bot is looking at in real-time.
 
-### 3. Human-Like Anti-Ban Engine
-*   **Global Cooldowns:** Anti-ban actions (mouse drifting, checking HP, hovering chat) share a global 45-120 second cooldown. It never fires robotic "bursts" of actions.
-*   **HP Orb Verification:** When checking the HP orb, it takes a micro-screenshot of the pixels under the mouse. If the pixels aren't red, it realizes the client window moved and triggers an automatic re-calibration.
+## Installation
 
-### 4. Smart Reconnect & OCR Failsafes
-*   **70-Second Login Loop:** If disconnected, the bot scans the entire canvas for the Welcome Screen (Red 'Play' button) and the Login Screen (Gold 'Play Now' button).
-*   **Debug Snapshots:** Silently saves pictures of what it sees during a disconnect (`debug_welcome_screen.png`) so you can review why a run failed.
-*   **OCR Integration (Tesseract):** Reads the text on disconnect popups. If it reads "Account already logged in" or "Error connecting", it safely halts instead of looping forever.
+### Prerequisites
+1. Python 3.12+
+2. Tesseract-OCR (optional fallback, EasyOCR is the primary engine)
+3. RuneLite (Required for plugins)
 
-### 5. Telemetry & Analytics
-*   **JSON Logging:** All major events (disconnects, aggro resets, failsafes) are logged cleanly to `data/telemetry.jsonl`.
-*   **Live Dashboard:** Run `python dashboard.py` alongside the bot for a live, scrolling GUI of the bot's internal state.
+### Setup
+Clone the repository and install the required dependencies:
 
----
+```bash
+git clone https://github.com/YourUsername/SmartCrab-OSRS.git
+cd SmartCrab-OSRS
+pip install -r requirements.txt
+```
+*(Note: To ensure compatibility on all Windows machines without C++ build tools, PyTorch is configured to run in CPU-only mode).*
 
-## 🛠️ Setup Instructions
-1. Ensure RuneLite is set to **Fixed - Classic Layout**.
-2. Install dependencies: `pip install -r requirements.txt`
-3. Install Tesseract OCR using the provided `tesseract-installer.exe`.
-4. Run the bot: `python smart_sand_crab_bot.py`
+## Usage
+
+1. Setup your RuneLite client:
+   - Layout: `Fixed - Classic Layout`
+   - Camera: Fully zoomed out, pitch all the way up.
+   - Compass: Facing exactly North.
+2. Tag your tiles (Magenta = Home, Cyan = Path, Blue = Far point).
+3. Run the Launcher:
+   ```bash
+   python gui_app.py
+   ```
+   *(Or double click `OSRS_Smart_Bot_Launcher.exe` if compiled)*
+4. Select your configuration in the GUI and hit **START BOT**.
+
+## Hotkeys (Configurable)
+- **Pause (`P`)**: Instantly freeze the bot exactly where it is (intercepts active sleeps).
+- **Force Home (`W`)**: Abort current pathing and force the bot to seek the Magenta home tile.
+- **Stop (`Q`)**: Hard terminate the bot.
+
+## Disclaimer
+
+**Educational Purposes Only.** 
+This software was created as an exercise in Computer Vision (OpenCV), OCR integration, and algorithmic mouse humanization. Using automation software ("botting") is strictly against the Jagex Terms of Service and *will* result in your account being banned. 
+
+The authors and contributors of this repository are not responsible for any bans, penalties, or damages incurred from using this software. Use at your own risk.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
