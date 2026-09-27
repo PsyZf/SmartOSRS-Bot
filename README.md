@@ -1,6 +1,6 @@
-# OSRS Smart Bot Framework (Beta)
+# SmartCrab Framework (Beta)
 
-Welcome to the OSRS Smart Bot Framework! This project has evolved from a simple coordinate-clicking script into a robust, vision-based automation framework designed for stability, human-like behavior, and extensibility.
+Welcome to the SmartCrab Framework! This project has evolved from a simple coordinate-clicking script into a robust, vision-based automation framework designed for stability, human-like behavior, and extensibility.
 
 ## 🚀 Core Features & Knowledge Base
 
