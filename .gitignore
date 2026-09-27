@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+latest_frame.jpg
+saved_macro.json
+.venv/
+venv/
+.idea/
+.vscode/
