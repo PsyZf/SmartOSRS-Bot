@@ -1243,12 +1243,12 @@ def main():
                         continue
 
                 # Out of combat periodic status notification
-                if 45 <= time_out_of_combat < 180 and loop_count % 15 == 0:
-                    print(f"    [*] Out of combat for {time_out_of_combat:.0f}s (Aggro reset in {max(0, int(RESET_TIME - since_reset))}s or at 180s idle)...")
+                if 25 <= time_out_of_combat < 60 and loop_count % 8 == 0:
+                    print(f"    [*] Out of combat for {time_out_of_combat:.0f}s (Aggro reset in {max(0, int(RESET_TIME - since_reset))}s or at 60s idle)...")
 
-                # Fallback: If out of combat for 3 minutes (180s), trigger full aggro reset route
-                if time_out_of_combat >= 180:
-                    print(f"\n    [WARNING] Out of combat for {time_out_of_combat/60:.1f} minutes! Triggering full Aggro Reset route...")
+                # Fallback: If out of combat for 60 seconds, trigger full aggro reset route
+                if time_out_of_combat >= 60:
+                    print(f"\n    [WARNING] Out of combat for {time_out_of_combat:.0f}s (60s limit reached)! Triggering full Aggro Reset route...")
                     reset_aggro()
                     last_aggro_reset = time.time()
                     last_combat_time = time.time()
