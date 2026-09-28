@@ -4,9 +4,9 @@ import threading
 import sys
 import time
 import os
+import io
 import glob
 from PIL import Image
-import os
 from macro_recorder import MacroRecorderGUI
 
 # --- GUI Config ---
@@ -176,10 +176,15 @@ class OSRSBotGUI(ctk.CTk):
         is_running = self.bot_process is not None and self.bot_process.poll() is None
         if is_running and os.path.exists("latest_frame.jpg"):
             try:
-                with Image.open("latest_frame.jpg") as img:
-                    img_copy = img.copy()
-                ctk_img = ctk.CTkImage(light_image=img_copy, dark_image=img_copy, size=(580, 381))
-                self.screen_label.configure(image=ctk_img, text="")
+                # Read via io.BytesIO to release file handle instantly without Windows file-locking
+                with open("latest_frame.jpg", "rb") as f:
+                    raw_data = f.read()
+                if raw_data:
+                    with Image.open(io.BytesIO(raw_data)) as img:
+                        pil_img = img.copy()
+                    ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(580, 381))
+                    self._current_preview_img = ctk_img  # Retain persistent Tkinter reference
+                    self.screen_label.configure(image=ctk_img, text="")
             except Exception:
                 pass
         elif is_running:

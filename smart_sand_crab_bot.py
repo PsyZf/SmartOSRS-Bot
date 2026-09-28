@@ -1,5 +1,7 @@
 import argparse
 import sys
+import os
+import threading
 import time
 import random
 import math
@@ -1172,14 +1174,26 @@ def main():
     # Auto-calibrate window position
     calibrate_window()
 
-    # Capture initial frame immediately so GUI preview appears
-    try:
-        init_box = {"left": int(4 + CLIENT_OFFSET_X), "top": int(4 + CLIENT_OFFSET_Y), "width": 765, "height": 503}
-        init_frame = capture_region(init_box)
-        if init_frame is not None:
-            cv2.imwrite("latest_frame.jpg", cv2.resize(init_frame, (400, 263)), [cv2.IMWRITE_JPEG_QUALITY, 80])
-    except Exception:
-        pass
+    def _stream_preview_loop():
+        """Continuously streams latest game frames to latest_frame.jpg for the GUI."""
+        while is_running:
+            try:
+                stream_box = {
+                    "left": int(4 + CLIENT_OFFSET_X),
+                    "top": int(4 + CLIENT_OFFSET_Y),
+                    "width": 765,
+                    "height": 503
+                }
+                frame = capture_region(stream_box)
+                if frame is not None:
+                    preview = cv2.resize(frame, (580, 381))
+                    cv2.imwrite("latest_frame.jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+    # Launch live streaming daemon thread
+    threading.Thread(target=_stream_preview_loop, daemon=True).start()
 
     # Run camera setup before the main loop begins
     setup_camera()
