@@ -58,7 +58,12 @@ class OSRSBotGUI(ctk.CTk):
         self.script_label = ctk.CTkLabel(self.sidebar, text="Select Script:", text_color=FG_TAN)
         self.script_label.grid(row=2, column=0, padx=20, pady=(10, 0), sticky="w")
         
-        script_files = [f for f in glob.glob("*bot.py")]
+        # Discover executable bot scripts (exclude internal patch and test scripts)
+        discovered = [
+            f for f in glob.glob("*bot.py") + glob.glob("run_*.py")
+            if not f.startswith(("patch_", "test_", "crop_", "find_", "verify_", "inject_", "ascii_"))
+        ]
+        script_files = sorted(list(set(discovered)))
         if not script_files:
             script_files = ["smart_sand_crab_bot.py"]
             

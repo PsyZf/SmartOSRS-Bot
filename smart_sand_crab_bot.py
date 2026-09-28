@@ -1212,7 +1212,9 @@ def main():
                 frame = capture_region(stream_box)
                 if frame is not None:
                     preview = cv2.resize(frame, (580, 381))
-                    cv2.imwrite("latest_frame.jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    cv2.imwrite("latest_frame_tmp.jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    if os.path.exists("latest_frame_tmp.jpg"):
+                        os.replace("latest_frame_tmp.jpg", "latest_frame.jpg")
             except Exception:
                 pass
             time.sleep(1.0)
@@ -1303,23 +1305,6 @@ def main():
 
             # ── Anti-ban micro-actions ────────────────────────────────────────────
             anti_ban_actions()
-
-            # ── Stream Latest Live Preview to GUI ─────────────────────────────────
-            try:
-                box = {
-                    "left": int(4 + CLIENT_OFFSET_X),
-                    "top": int(4 + CLIENT_OFFSET_Y),
-                    "width": 765,
-                    "height": 503
-                }
-                frame = capture_region(box)
-                if frame is not None:
-                    preview = cv2.resize(frame, (400, 263))
-                    cv2.imwrite("latest_frame_tmp.jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                    if os.path.exists("latest_frame_tmp.jpg"):
-                        os.replace("latest_frame_tmp.jpg", "latest_frame.jpg")
-            except Exception:
-                pass
 
             # ── Main loop idle — gaussian sleep so intervals are never identical ──
             idle = random.gauss(2.0, 0.6)
