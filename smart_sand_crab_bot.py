@@ -1242,25 +1242,13 @@ def main():
                         last_combat_time = time.time()
                         continue
 
-                # Track multiple 30s out-of-combat events within a 5-minute window
-                if time_out_of_combat > 30 and since_reset < RESET_TIME - 30:
-                    if not idle_history or current_time - idle_history[-1] > 35:
-                        print(f"    [!] Idle for 30s (Event {len(idle_history)+1}).")
-                        idle_history.append(current_time)
-                
-                    # Cleanup idle history older than 5 minutes (300 seconds)
-                    idle_history = [t for t in idle_history if current_time - t <= 300]
-                
-                    # If we've been idle 30s+ at least 3 times in 5 minutes, force path recovery
-                    if len(idle_history) >= 3:
-                        print("    [WARNING] Consistently idle (3 times in 5 mins). Forcing re-center to Magenta...")
-                        recover_path()
-                        idle_history.clear()
-                        last_combat_time = current_time  # Reset to avoid spam
+                # Out of combat periodic status notification
+                if 45 <= time_out_of_combat < 180 and loop_count % 15 == 0:
+                    print(f"    [*] Out of combat for {time_out_of_combat:.0f}s (Aggro reset in {max(0, int(RESET_TIME - since_reset))}s or at 180s idle)...")
 
-                # Hard fallback: If out of combat for more than 80 seconds
-                if time_out_of_combat > 80:
-                    print(f"    [WARNING] No combat detected for {time_out_of_combat:.0f}s! Assuming aggro lost, forcing reset...")
+                # Fallback: If out of combat for 3 minutes (180s), trigger full aggro reset route
+                if time_out_of_combat >= 180:
+                    print(f"\n    [WARNING] Out of combat for {time_out_of_combat/60:.1f} minutes! Triggering full Aggro Reset route...")
                     reset_aggro()
                     last_aggro_reset = time.time()
                     last_combat_time = time.time()
