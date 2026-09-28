@@ -179,42 +179,69 @@ keyboard.add_hotkey(args.hotkey_force, trigger_force_home)
 
 def calibrate_window():
     """
-    Finds the exact (0,0) canvas origin of the game window by searching for the 
-    compass icon. This bypasses all issues with custom title bars, borders, and OS themes.
+    Finds the exact (0,0) canvas origin of the game window.
+    Uses native Windows APIs to find the inner Java Canvas (SunAwtCanvas) for RuneLite, 
+    completely bypassing custom title bars, borders, and OS themes.
     """
     global GAME_VIEWPORT, MINIMAP_REGION, COMPASS
     global CLIENT_OFFSET_X, CLIENT_OFFSET_Y
     
     print("[Setup] Auto-calibrating window position...")
 
-    # Method 1: Template match if compass_template.png exists
-    template_path = "compass_template.png"
-    if os.path.exists(template_path):
+    if os.name == 'nt':
         try:
-            screen_bgr = capture_screen()
-            template = cv2.imread(template_path)
-            res = cv2.matchTemplate(screen_bgr, template, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
             
-            if max_val > 0.75:
-                # The compass in Classic Fixed mode is precisely at 545, 3 relative to canvas.
-                game_x = max_loc[0] - 545
-                game_y = max_loc[1] - 3
-                print(f"    [+] Found RuneLite compass -> Canvas Origin: X:{game_x}, Y:{game_y}")
-                CLIENT_OFFSET_X = game_x
-                CLIENT_OFFSET_Y = game_y
+            found_hwnds = []
+            def enum_cb(hwnd, lparam):
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        title_low = buff.value.lower()
+                        if 'runelite' in title_low or 'old school runescape' in title_low or 'osrs' in title_low:
+                            rect = wintypes.RECT()
+                            user32.GetClientRect(hwnd, ctypes.byref(rect))
+                            cw = rect.right - rect.left
+                            if cw >= 700:
+                                found_hwnds.append((hwnd, buff.value))
+                return True
+            
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+            
+            if found_hwnds:
+                main_hwnd, win_title = found_hwnds[0]
+                target_hwnd = main_hwnd
+                
+                # If using RuneLite, find the inner Java canvas to bypass custom chrome titlebars
+                child = user32.FindWindowExW(main_hwnd, 0, "SunAwtCanvas", None)
+                if child:
+                    target_hwnd = child
+                    
+                pt = wintypes.POINT(0, 0)
+                user32.ClientToScreen(target_hwnd, ctypes.byref(pt))
+                
+                CLIENT_OFFSET_X = pt.x
+                CLIENT_OFFSET_Y = pt.y
+                print(f"    [+] Calibrated to '{win_title}' -> Canvas Origin: X:{CLIENT_OFFSET_X}, Y:{CLIENT_OFFSET_Y}")
+                
                 GAME_VIEWPORT["left"]  = 4   + CLIENT_OFFSET_X
                 GAME_VIEWPORT["top"]   = 4   + CLIENT_OFFSET_Y
                 MINIMAP_REGION["left"] = 565 + CLIENT_OFFSET_X
                 MINIMAP_REGION["top"]  = 9   + CLIENT_OFFSET_Y
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"    [DEBUG] Native calibration failed: {e}")
 
-    # Method 2: Standard RuneLite layout fallback (docked top-left with standard 32px titlebar)
+    # Fallback
     CLIENT_OFFSET_X = 0
     CLIENT_OFFSET_Y = 32
-    print(f"    [!] Compass not found. Using standard RuneLite window layout (Top-Left, Titlebar Y=32)")
+    print(f"    [!] Native calibration failed. Using standard layout (Titlebar Y=32)")
     GAME_VIEWPORT["left"]  = 4   + CLIENT_OFFSET_X
     GAME_VIEWPORT["top"]   = 4   + CLIENT_OFFSET_Y
     MINIMAP_REGION["left"] = 565 + CLIENT_OFFSET_X
