@@ -1,0 +1,45 @@
+name: "Declarative Combat & Reset Workflow"
+version: "1.0"
+author: "SmartOSRS"
+description: "Declarative state machine managing combat monitoring, aggro reset timer, and breaks."
+
+settings:
+  poll_interval: 0.5
+  default_timeout: 300
+
+states:
+  - id: "check_aggro_timer"
+    description: "Evaluates if the aggro timer (e.g. 600s) has elapsed."
+    condition:
+      type: "timer_elapsed"
+      timer: "aggro_reset"
+      seconds: 600.0
+    on_true: "run_reset_path"
+    on_false: "check_combat"
+
+  - id: "check_combat"
+    description: "Checks if player is currently in combat via health orb status."
+    action:
+      type: "log"
+      level: "INFO"
+      message: "Monitoring combat status and health..."
+    next_state: "idle_delay"
+
+  - id: "idle_delay"
+    description: "Brief humanized delay between state checks."
+    action:
+      type: "sleep"
+      duration: [1.2, 2.8]
+    next_state: "check_aggro_timer"
+
+  - id: "run_reset_path"
+    description: "Executes aggro reset movement sequence when timer fires."
+    action:
+      type: "sequence"
+      steps:
+        - type: "log"
+          level: "INFO"
+          message: "Aggro reset timer elapsed. Executing reset path..."
+        - type: "sleep"
+          duration: [0.5, 1.0]
+    next_state: "check_aggro_timer"
