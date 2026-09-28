@@ -25,15 +25,17 @@ class OSRSBotGUI(ctk.CTk):
         super().__init__()
 
         self.title("OSRS Smart Bot Framework")
-        self.geometry("1350x650")
+        self.geometry("1480x720")
         self.configure(fg_color=BG_BROWN)
         
         # Grid layout
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=0)  # Sidebar (fixed)
+        self.grid_columnconfigure(1, weight=3)  # Console / logs
+        self.grid_columnconfigure(2, weight=5)  # Live preview (large area)
         self.grid_rowconfigure(0, weight=1)
         
         # --- Sidebar (Controls) ---
-        self.sidebar = ctk.CTkScrollableFrame(self, width=280, corner_radius=0, fg_color=PANEL_BROWN)
+        self.sidebar = ctk.CTkFrame(self, width=270, corner_radius=0, fg_color=PANEL_BROWN)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         
         self.logo = ctk.CTkLabel(self.sidebar, text="OSRS Smart Bot", font=ctk.CTkFont(size=22, weight="bold"), text_color=ACCENT_GOLD)
@@ -128,9 +130,17 @@ class OSRSBotGUI(ctk.CTk):
         self.console_frame.grid_columnconfigure(0, weight=1)
         self.console_frame.grid_rowconfigure(0, weight=1)
         
-        self.textbox = ctk.CTkTextbox(self.console_frame, font=ctk.CTkFont(family="Consolas", size=13), fg_color="#120d07", text_color="#d6a940")
+        self.textbox = ctk.CTkTextbox(self.console_frame, font=ctk.CTkFont(family="Consolas", size=12), fg_color="#120d07", text_color="#e8c991")
         self.textbox.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-        self.textbox.insert("0.0", "Welcome to the OSRS Smart Bot Framework.\nConfigure your settings on the left and click START.\n\n")
+        
+        # Color tags for console output
+        self.textbox.tag_config("success", foreground="#55ff77")
+        self.textbox.tag_config("warning", foreground="#ffcc00")
+        self.textbox.tag_config("error", foreground="#ff5555")
+        self.textbox.tag_config("info", foreground="#88ccff")
+        self.textbox.tag_config("default", foreground="#e8c991")
+        
+        self.textbox.insert("0.0", "Welcome to the SmartOSRS Bot Framework.\nConfigure your settings on the left and click START.\n\n", "info")
         self.textbox.configure(state="disabled")
         
         # --- Screenshot Area ---
@@ -168,7 +178,7 @@ class OSRSBotGUI(ctk.CTk):
             try:
                 with Image.open("latest_frame.jpg") as img:
                     img_copy = img.copy()
-                ctk_img = ctk.CTkImage(light_image=img_copy, dark_image=img_copy, size=(400, 263))
+                ctk_img = ctk.CTkImage(light_image=img_copy, dark_image=img_copy, size=(580, 381))
                 self.screen_label.configure(image=ctk_img, text="")
             except Exception:
                 pass
@@ -219,8 +229,22 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.runtime_label.configure(text=f"Max Runtime: {value:.1f} Hours")
 
     def log(self, message):
+        msg_str = str(message)
+        low = msg_str.lower()
+        
+        if msg_str.startswith("[+]") or "success" in low or "recovered" in low or "started" in low:
+            tag = "success"
+        elif msg_str.startswith("[!]") or "warning" in low or "idle" in low or "reset" in low:
+            tag = "warning"
+        elif msg_str.startswith("[ERROR]") or "failsafe" in low or "error" in low or "failed" in low or "shutdown" in low:
+            tag = "error"
+        elif msg_str.startswith("[*]") or "info" in low or "initializing" in low or "checking" in low:
+            tag = "info"
+        else:
+            tag = "default"
+
         self.textbox.configure(state="normal")
-        self.textbox.insert("end", message + "\n")
+        self.textbox.insert("end", msg_str + "\n", tag)
         self.textbox.see("end")
         self.textbox.configure(state="disabled")
 
