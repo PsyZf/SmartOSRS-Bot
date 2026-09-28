@@ -1172,6 +1172,15 @@ def main():
     # Auto-calibrate window position
     calibrate_window()
 
+    # Capture initial frame immediately so GUI preview appears
+    try:
+        init_box = {"left": int(4 + CLIENT_OFFSET_X), "top": int(4 + CLIENT_OFFSET_Y), "width": 765, "height": 503}
+        init_frame = capture_region(init_box)
+        if init_frame is not None:
+            cv2.imwrite("latest_frame.jpg", cv2.resize(init_frame, (400, 263)), [cv2.IMWRITE_JPEG_QUALITY, 80])
+    except Exception:
+        pass
+
     # Run camera setup before the main loop begins
     setup_camera()
 
@@ -1267,6 +1276,23 @@ def main():
 
             # ── Anti-ban micro-actions ────────────────────────────────────────────
             anti_ban_actions()
+
+            # ── Stream Latest Live Preview to GUI ─────────────────────────────────
+            try:
+                box = {
+                    "left": int(4 + CLIENT_OFFSET_X),
+                    "top": int(4 + CLIENT_OFFSET_Y),
+                    "width": 765,
+                    "height": 503
+                }
+                frame = capture_region(box)
+                if frame is not None:
+                    preview = cv2.resize(frame, (400, 263))
+                    cv2.imwrite("latest_frame_tmp.jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    if os.path.exists("latest_frame_tmp.jpg"):
+                        os.replace("latest_frame_tmp.jpg", "latest_frame.jpg")
+            except Exception:
+                pass
 
             # ── Main loop idle — gaussian sleep so intervals are never identical ──
             idle = random.gauss(2.0, 0.6)

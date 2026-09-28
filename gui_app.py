@@ -163,17 +163,21 @@ class OSRSBotGUI(ctk.CTk):
         MacroRecorderGUI(self)
 
     def update_screenshot(self):
-        if self.bot_process is not None and os.path.exists("latest_frame.jpg"):
+        is_running = self.bot_process is not None and self.bot_process.poll() is None
+        if is_running and os.path.exists("latest_frame.jpg"):
             try:
-                img = Image.open("latest_frame.jpg")
-                ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(400, 300))
+                with Image.open("latest_frame.jpg") as img:
+                    img_copy = img.copy()
+                ctk_img = ctk.CTkImage(light_image=img_copy, dark_image=img_copy, size=(400, 263))
                 self.screen_label.configure(image=ctk_img, text="")
             except Exception:
                 pass
+        elif is_running:
+            self.screen_label.configure(image="", text="Live Feed (Connecting...)")
         else:
             self.screen_label.configure(image="", text="Live Feed (Stopped)")
             
-        self.after(2000, self.update_screenshot)
+        self.after(1000, self.update_screenshot)
 
     def open_setup_guide(self):
         guide_window = ctk.CTkToplevel(self)
