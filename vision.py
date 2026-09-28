@@ -82,7 +82,26 @@ def detect_screen_action(image_cv2):
                             return "WELCOME_PLAY", (cx, cy)
                 return "WELCOME_PLAY", (382, 235)
 
-            # 2. Disconnect / Retry Screen
+            # 2. Login Screen ("Existing User" / "Enter your username" / "Play Now")
+            # We check Login BEFORE Disconnect, because a disconnected Login screen 
+            # will say "Error connecting to server", which would falsely trigger the retry screen fallback.
+            is_login = (
+                "existing user" in combined or
+                "new user" in combined or
+                "enter your username" in combined or
+                "enter username" in combined or
+                "invalid credentials" in combined or
+                "play now" in combined or
+                ("runescape" in combined and "password" in combined)
+            )
+            if is_login:
+                for cx, cy, conf, text, bbox in extracted:
+                    if 180 <= cx <= 585 and 150 <= cy <= 420:
+                        if any(k in text for k in ["existing", "user", "login", "play", "now"]):
+                            return "LOGIN_BUTTON", (cx, cy)
+                return "LOGIN_BUTTON", (382, 250)
+
+            # 3. Disconnect / Retry Screen
             is_disconnect = (
                 "try again" in combined or
                 "connection lost" in combined or
@@ -96,22 +115,6 @@ def detect_screen_action(image_cv2):
                         if any(k in text for k in ["try", "again", "retry"]):
                             return "DISCONNECT_RETRY", (cx, cy)
                 return "DISCONNECT_RETRY", (382, 275)
-
-            # 3. Login Screen ("Existing User" / "Enter your username")
-            is_login = (
-                "existing user" in combined or
-                "new user" in combined or
-                "enter your username" in combined or
-                "enter username" in combined or
-                "invalid credentials" in combined or
-                ("runescape" in combined and "password" in combined)
-            )
-            if is_login:
-                for cx, cy, conf, text, bbox in extracted:
-                    if 180 <= cx <= 585 and 150 <= cy <= 420:
-                        if any(k in text for k in ["existing", "user", "login"]):
-                            return "LOGIN_BUTTON", (cx, cy)
-                return "LOGIN_BUTTON", (382, 250)
 
             # If none of the explicit screen phrases matched, this is an in-game screen or other UI
             return None, None
