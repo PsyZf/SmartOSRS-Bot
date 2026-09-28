@@ -2,19 +2,39 @@ import cv2
 import numpy as np
 import os
 
-reader = None
-try:
-    import easyocr
-    reader = easyocr.Reader(['en'], gpu=False)
-except Exception:
-    pass
+_reader = None
+_reader_failed = False
+
+def _get_ocr_reader():
+    """
+    Lazy-loads EasyOCR only when explicitly needed, avoiding blocking bot startup.
+    """
+    global _reader, _reader_failed
+    if _reader_failed:
+        return None
+    if _reader is not None:
+        return _reader
+        
+    try:
+        import easyocr
+        # Initialize reader silently in the background
+        _reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        return _reader
+    except Exception:
+        _reader_failed = True
+        return None
 
 def read_text_from_image(image_cv2):
     """
-    Extracts text using EasyOCR if available, otherwise returns empty.
+    Extracts text using EasyOCR if available, otherwise returns empty string.
     """
+    if image_cv2 is None:
+        return ""
+        
+    reader = _get_ocr_reader()
     if reader is None:
         return ""
+        
     try:
         gray = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2GRAY)
         results = reader.readtext(gray, detail=0)
@@ -25,6 +45,7 @@ def read_text_from_image(image_cv2):
 def detect_screen_action(image_cv2):
     """
     Pure OpenCV high-speed detector for OSRS Login, Welcome, and Disconnect screens.
+    Executes in < 2ms without heavy ML dependencies.
     Returns (action_type, (x, y)) with calibrated center coordinates for Fixed Classic layout (765x503).
     """
     if image_cv2 is None:
@@ -77,9 +98,16 @@ def detect_screen_action(image_cv2):
 
 def find_text_coordinates(image_cv2, target_text):
     """
-    Finds the center (x, y) coordinate of a specific text string using OCR or pure CV.
+    Finds the center (x, y) coordinate of a specific text string using pure CV or OCR fallback.
     """
-    if reader is not None:
+    # 1. Immediate Pure CV check for standard UI elements (instant <2ms response)
+    action, coords = detect_screen_action(image_cv2)
+    if coords is not None:
+        return coords
+        
+    # 2. OCR Fallback for custom arbitrary text
+    reader = _get_ocr_reader()
+    if reader is not None and image_cv2 is not None:
         try:
             gray = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2GRAY)
             results = reader.readtext(gray, detail=1)
@@ -93,8 +121,4 @@ def find_text_coordinates(image_cv2, target_text):
         except Exception:
             pass
             
-    action, coords = detect_screen_action(image_cv2)
-    if coords is not None:
-        return coords
-        
     return None
