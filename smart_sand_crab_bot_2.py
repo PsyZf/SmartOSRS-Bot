@@ -576,14 +576,14 @@ def is_in_game():
     r1 = cv2.inRange(hsv, (0, 60, 50), (12, 255, 255))
     r2 = cv2.inRange(hsv, (168, 60, 50), (180, 255, 255))
     hp_red = cv2.countNonZero(r1) + cv2.countNonZero(r2)
-    # If the HP orb has >= 10 red pixels (heart icon or health), player is in game
-    if hp_red >= 10:
+    # If the HP orb has >= 5 red pixels (heart icon or health), player is in game
+    if hp_red >= 5:
         return True
         
-    # Check Run orb as secondary indicator
+    # Check Run orb as secondary indicator (Center is 558, 134 -> bounding box 546, 122)
     run_region = {
-        "left": 565 + CLIENT_OFFSET_X,
-        "top": 110 + CLIENT_OFFSET_Y,
+        "left": 546 + CLIENT_OFFSET_X,
+        "top": 122 + CLIENT_OFFSET_Y,
         "width": 26,
         "height": 26
     }
