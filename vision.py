@@ -17,7 +17,6 @@ def _get_ocr_reader():
         
     try:
         import easyocr
-        # Initialize reader silently in the background
         _reader = easyocr.Reader(['en'], gpu=False, verbose=False)
         return _reader
     except Exception:
@@ -44,16 +43,61 @@ def read_text_from_image(image_cv2):
 
 def detect_screen_action(image_cv2):
     """
-    Pure OpenCV high-speed detector for OSRS Login, Welcome, and Disconnect screens.
-    Executes in < 2ms without heavy ML dependencies.
-    Returns (action_type, (x, y)) with calibrated center coordinates for Fixed Classic layout (765x503).
+    High-accuracy detector for OSRS Login, Welcome, and Disconnect screens.
+    Uses EasyOCR text-coordinate detection with pure CV color/shape fallback.
+    Returns (action_type, (x, y)) target coordinates relative to canvas.
     """
     if image_cv2 is None:
         return None, None
-        
+
+    # ── Method 1: EasyOCR Precision Text Targeting ───────────────────────────
+    reader = _get_ocr_reader()
+    if reader is not None:
+        try:
+            results = reader.readtext(image_cv2, detail=1)
+            play_candidates = []
+            retry_candidates = []
+            login_candidates = []
+
+            for bbox, text, conf in results:
+                t_low = text.lower().strip()
+                words = t_low.split()
+                cx = int((bbox[0][0] + bbox[2][0]) / 2)
+                cy = int((bbox[0][1] + bbox[2][1]) / 2)
+
+                # Focus on the game canvas area
+                if 120 <= cx <= 645 and 100 <= cy <= 450:
+                    # Match "Play", "Play Now", "Click here to play" (exact words)
+                    if "play" in words or "now" in words or "click" in words:
+                        play_candidates.append((cx, cy, conf, text))
+                    # Match "Try again", "Retry", "Disconnected"
+                    elif "try" in words or "again" in words or "retry" in words or "disconnected" in words:
+                        retry_candidates.append((cx, cy, conf, text))
+                    # Match "Existing User", "Login"
+                    elif "existing" in words or "login" in words or "user" in words:
+                        login_candidates.append((cx, cy, conf, text))
+
+            # Prioritize Play buttons if found
+            if play_candidates:
+                best = max(play_candidates, key=lambda x: x[2])
+                return "WELCOME_PLAY", (best[0], best[1])
+
+            # Then Disconnect / Retry buttons
+            if retry_candidates:
+                best = max(retry_candidates, key=lambda x: x[2])
+                return "DISCONNECT_RETRY", (best[0], best[1])
+
+            # Then Login buttons
+            if login_candidates:
+                best = max(login_candidates, key=lambda x: x[2])
+                return "LOGIN_BUTTON", (best[0], best[1])
+        except Exception:
+            pass
+
+    # ── Method 2: Pure CV Color & Contour Fallback ───────────────────────────
     hsv = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2HSV)
     
-    # 1. Welcome Screen ("CLICK HERE TO PLAY" Red Button)
+    # Red Welcome Screen Button ("CLICK HERE TO PLAY")
     r1 = cv2.inRange(hsv, (0, 70, 50), (12, 255, 255))
     r2 = cv2.inRange(hsv, (168, 70, 50), (180, 255, 255))
     red_mask = cv2.bitwise_or(r1, r2)
@@ -62,13 +106,21 @@ def detect_screen_action(image_cv2):
     for c in contours:
         x, y, bw, bh = cv2.boundingRect(c)
         area = cv2.contourArea(c)
-        # Red welcome banner is large in the center area
         if (bw >= 100 and bh >= 20 and area > 1800) or area > 10000:
             if y < 420:
-                # The "Click here to play" red button is centered at X=382, Y=330
-                return "WELCOME_PLAY", (382, 330)
+                return "WELCOME_PLAY", (x + bw // 2, y + bh // 2)
 
-    # 2. Disconnect / Try Again Popup (Dialog with white text at Y: 220-280)
+    # Gold Login Button ("Existing User" / "Play Now" / Character Box)
+    gold_mask = cv2.inRange(hsv, (12, 70, 70), (45, 255, 255))
+    g_contours, _ = cv2.findContours(gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in g_contours:
+        x, y, bw, bh = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
+        if (bw >= 70 and bh >= 18 and area > 500) or area > 4000:
+            if y < 420:
+                return "LOGIN_BUTTON", (382, 235)
+
+    # Disconnect / Retry Dialog Box (White text clusters)
     center_roi = image_cv2[150:350, 200:565]
     white_text = cv2.inRange(center_roi, (180, 180, 180), (255, 255, 255))
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 3))
@@ -77,35 +129,19 @@ def detect_screen_action(image_cv2):
     
     for tc in t_contours:
         tx, ty, tw, th = cv2.boundingRect(tc)
-        # "Try again" text at dialog bottom
         if 40 <= tw <= 190 and 8 <= th <= 25 and 85 <= ty <= 145:
-            # Click directly on the centered Try Again button
-            return "DISCONNECT_RETRY", (382, 266)
-
-    # 3. Gold / Yellow Login Buttons ("Existing User" / "Play Now" / "PLAYERNAME" Account Box)
-    gold_mask = cv2.inRange(hsv, (12, 70, 70), (45, 255, 255))
-    g_contours, _ = cv2.findContours(gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    for c in g_contours:
-        x, y, bw, bh = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        # Match gold button contours or massive account box banner
-        if (bw >= 70 and bh >= 18 and area > 500) or area > 4000:
-            if y < 420:
-                # In classic fixed mode, the main character card / Play button is horizontally centered at X=382, Y=310
-                return "LOGIN_BUTTON", (382, 310)
+            return "DISCONNECT_RETRY", (200 + tx + tw // 2, 150 + ty + th // 2)
 
     return None, None
 
 def find_text_coordinates(image_cv2, target_text):
     """
-    Finds the center (x, y) coordinate of a specific text string using pure CV or OCR fallback.
+    Finds the center (x, y) coordinate of a specific text string using OCR or pure CV.
     """
-    # 1. Immediate Pure CV check for standard UI elements (instant <2ms response)
     action, coords = detect_screen_action(image_cv2)
     if coords is not None:
         return coords
         
-    # 2. OCR Fallback for custom arbitrary text
     reader = _get_ocr_reader()
     if reader is not None and image_cv2 is not None:
         try:
