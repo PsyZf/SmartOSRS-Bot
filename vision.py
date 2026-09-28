@@ -17,7 +17,7 @@ def _get_ocr_reader():
         
     try:
         import easyocr
-        _reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        _reader = easyocr.Reader(['en'], gpu=True, verbose=False)
         return _reader
     except Exception:
         _reader_failed = True

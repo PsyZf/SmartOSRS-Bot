@@ -3,12 +3,19 @@ import cv2
 import numpy as np
 from mss import MSS
 
+_global_sct = None
+
 class ConditionEvaluator:
     """
     Evaluates conditional statements in declarative YAML tasks.
     """
     def __init__(self, sct=None):
-        self.sct = sct or MSS()
+        global _global_sct
+        if sct is None:
+            if _global_sct is None:
+                _global_sct = MSS()
+            sct = _global_sct
+        self.sct = sct
 
     def capture_region(self, region: dict | list) -> np.ndarray:
         if isinstance(region, list):

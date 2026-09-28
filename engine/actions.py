@@ -5,12 +5,19 @@ import cv2
 import numpy as np
 from mss import MSS
 
+_global_sct = None
+
 class ActionRegistry:
     """
     Registry of executable actions for declarative YAML tasks.
     """
     def __init__(self, sct=None):
-        self.sct = sct or MSS()
+        global _global_sct
+        if sct is None:
+            if _global_sct is None:
+                _global_sct = MSS()
+            sct = _global_sct
+        self.sct = sct
 
     def sleep_random(self, duration: list | tuple | float):
         if isinstance(duration, (list, tuple)):

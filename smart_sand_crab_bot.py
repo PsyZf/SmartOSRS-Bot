@@ -65,11 +65,7 @@ INVENTORY_SLOT_1 = (578, 228)  # Top-left slot center
 INVENTORY_SLOT_W = 42          # Slot width
 INVENTORY_SLOT_H = 36          # Slot height
 
-def get_inventory_slot(col, row):
-    """Returns the center (x, y) of an inventory slot. col and row are 0-indexed."""
-    x = INVENTORY_SLOT_1[0] + col * INVENTORY_SLOT_W
-    y = INVENTORY_SLOT_1[1] + row * INVENTORY_SLOT_H
-    return (x, y)
+
 
 # --- Chat Box ---
 CHAT_REGION = {"left": 4, "top": 338, "width": 506, "height": 165}
@@ -240,10 +236,7 @@ def calibrate_window():
     template_path = "compass_template.png"
     if os.path.exists(template_path):
         try:
-            with MSS() as sct:
-                monitor = sct.monitors[1]
-                screen = np.array(sct.grab(monitor))
-                screen_bgr = cv2.cvtColor(screen, cv2.COLOR_BGRA2BGR)
+            screen_bgr = capture_screen()
             template = cv2.imread(template_path)
             res = cv2.matchTemplate(screen_bgr, template, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
@@ -333,7 +326,10 @@ def human_mouse_move(target_x, target_y, speed_variance=True):
 
     steps = max(10, int(dist / 5))
     for i in range(steps + 1):
-        t  = i / steps
+        linear_t = i / steps
+        # Apply Sine Ease-Out to make the mouse naturally decelerate
+        t = math.sin(linear_t * math.pi / 2)
+        
         bx, by = _bezier_point(t, (start_x, start_y), cp1, cp2, (target_x, target_y))
         # Add micro-jitter on each step
         jx = bx + random.uniform(-0.8, 0.8)
@@ -494,18 +490,19 @@ def check_combat_potions():
 # SCREEN CAPTURE & COLOR DETECTION
 # =============================================================================
 
+# Global singleton to prevent recreating the DXGI/GDI context thousands of times
+sct_engine = MSS()
+
 def capture_region(region):
     """Captures a specific screen region dict {left, top, width, height}."""
-    with MSS() as sct:
-        screenshot = np.array(sct.grab(region))
-        return cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+    screenshot = np.array(sct_engine.grab(region))
+    return cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
 
 def capture_screen():
     """Captures the full primary monitor."""
-    with MSS() as sct:
-        monitor = sct.monitors[1]
-        screenshot = np.array(sct.grab(monitor))
-        return cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+    monitor = sct_engine.monitors[1]
+    screenshot = np.array(sct_engine.grab(monitor))
+    return cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
 
 def find_color_centers(image, lower_hsv, upper_hsv, min_area=2, max_area=None):
     """
