@@ -76,11 +76,8 @@ def detect_screen_action(image_cv2):
                 ("school" in combined and "world" in combined)
             )
             if is_welcome:
-                for cx, cy, conf, text, bbox in extracted:
-                    if 180 <= cx <= 585 and 150 <= cy <= 420:
-                        if any(k in text for k in ["play", "click", "now", "here"]):
-                            return "WELCOME_PLAY", (cx, cy)
-                return "WELCOME_PLAY", (382, 235)
+                # Big red 'Click here to play' button is always dead center near the bottom
+                return "WELCOME_PLAY", (382, 370)
 
             # 2. Login Screen ("Existing User" / "Enter your username" / "Play Now")
             # We check Login BEFORE Disconnect, because a disconnected Login screen 
@@ -95,11 +92,8 @@ def detect_screen_action(image_cv2):
                 ("runescape" in combined and "password" in combined)
             )
             if is_login:
-                for cx, cy, conf, text, bbox in extracted:
-                    if 180 <= cx <= 585 and 150 <= cy <= 420:
-                        if any(k in text for k in ["existing", "user", "login", "play", "now"]):
-                            return "LOGIN_BUTTON", (cx, cy)
-                return "LOGIN_BUTTON", (382, 250)
+                # Login / Play Now button is slightly above center
+                return "LOGIN_BUTTON", (382, 310)
 
             # 3. Disconnect / Retry Screen
             is_disconnect = (
@@ -110,11 +104,8 @@ def detect_screen_action(image_cv2):
                 "error connecting to server" in combined
             )
             if is_disconnect:
-                for cx, cy, conf, text, bbox in extracted:
-                    if 180 <= cx <= 585 and 150 <= cy <= 420:
-                        if any(k in text for k in ["try", "again", "retry"]):
-                            return "DISCONNECT_RETRY", (cx, cy)
-                return "DISCONNECT_RETRY", (382, 275)
+                # 'Try again' button is also slightly below center
+                return "DISCONNECT_RETRY", (382, 330)
 
             # If none of the explicit screen phrases matched, this is an in-game screen or other UI
             return None, None

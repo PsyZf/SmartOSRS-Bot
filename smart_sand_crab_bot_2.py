@@ -788,7 +788,7 @@ def reset_aggro():
     MARKER_BLUE_LOW     = (110, 100, 100)
     MARKER_BLUE_HIGH    = (130, 255, 255)
 
-    print("[*] ~10 minutes passed -- resetting Sand Crab aggression...")
+    print("\n[*] Initiating Sand Crab aggression reset route...")
 
     if WORLD_CLICK_NAV:
         offset_x = GAME_VIEWPORT["left"]
