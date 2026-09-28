@@ -183,33 +183,58 @@ keyboard.add_hotkey(args.hotkey_force, trigger_force_home)
 
 def calibrate_window():
     """
-    Finds the RuneLite game window on the screen by locating the Compass icon / title bar.
-    Automatically offsets all global coordinates so the window can be anywhere.
+    Finds the RuneLite game window on screen using native Windows ClientToScreen API.
+    Locates the EXACT (0, 0) origin of the game canvas inside the window,
+    bypassing title bars, window borders, and drop shadows completely.
     """
     global GAME_VIEWPORT, MINIMAP_REGION, COMPASS
     global CLIENT_OFFSET_X, CLIENT_OFFSET_Y
     
     print("[Setup] Auto-calibrating window position...")
     
-    # Method 1: Check active OS windows
-    try:
-        import pygetwindow as gw
-        windows = [w for w in gw.getWindowsWithTitle("RuneLite") if w.visible and w.width > 300]
-        if windows:
-            w = windows[0]
-            # In Fixed Mode, canvas is 765x503. Height difference is the titlebar.
-            titlebar_h = max(28, min(40, w.height - 503)) if w.height >= 503 else 32
-            CLIENT_OFFSET_X = max(0, w.left)
-            CLIENT_OFFSET_Y = max(0, w.top + titlebar_h)
-            print(f"    [+] Detected RuneLite window at X:{CLIENT_OFFSET_X}, Y:{CLIENT_OFFSET_Y}")
+    # Method 1: Windows Native ClientToScreen (100% pixel-perfect canvas origin)
+    if os.name == 'nt':
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
             
-            GAME_VIEWPORT["left"]  = 4   + CLIENT_OFFSET_X
-            GAME_VIEWPORT["top"]   = 4   + CLIENT_OFFSET_Y
-            MINIMAP_REGION["left"] = 565 + CLIENT_OFFSET_X
-            MINIMAP_REGION["top"]  = 9   + CLIENT_OFFSET_Y
-            return
-    except Exception:
-        pass
+            found_hwnds = []
+            def enum_cb(hwnd, lparam):
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        title_low = buff.value.lower()
+                        if 'runelite' in title_low or 'old school runescape' in title_low or 'osrs' in title_low:
+                            rect = wintypes.RECT()
+                            user32.GetClientRect(hwnd, ctypes.byref(rect))
+                            cw = rect.right - rect.left
+                            ch = rect.bottom - rect.top
+                            if cw >= 700: # Valid game canvas
+                                found_hwnds.append((hwnd, buff.value, cw, ch))
+                return True
+            
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+            
+            if found_hwnds:
+                hwnd, win_title, cw, ch = found_hwnds[0]
+                pt = wintypes.POINT(0, 0)
+                user32.ClientToScreen(hwnd, ctypes.byref(pt))
+                CLIENT_OFFSET_X = pt.x
+                CLIENT_OFFSET_Y = pt.y
+                print(f"    [+] Calibrated to window '{win_title}' -> Canvas Origin: X:{CLIENT_OFFSET_X}, Y:{CLIENT_OFFSET_Y} (Size: {cw}x{ch})")
+                
+                GAME_VIEWPORT["left"]  = 4   + CLIENT_OFFSET_X
+                GAME_VIEWPORT["top"]   = 4   + CLIENT_OFFSET_Y
+                MINIMAP_REGION["left"] = 565 + CLIENT_OFFSET_X
+                MINIMAP_REGION["top"]  = 9   + CLIENT_OFFSET_Y
+                return
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"    [DEBUG] Native window calibration exception: {e}")
 
     # Method 2: Template match if compass_template.png exists
     template_path = "compass_template.png"
@@ -236,7 +261,7 @@ def calibrate_window():
         except Exception:
             pass
 
-    # Method 3: Standard RuneLite layout (docked top-left with 32px titlebar)
+    # Method 3: Standard RuneLite layout fallback (docked top-left with standard 32px titlebar)
     CLIENT_OFFSET_X = 0
     CLIENT_OFFSET_Y = 32
     print(f"    [+] Using standard RuneLite window layout (Top-Left, Titlebar Y=32)")
@@ -562,8 +587,8 @@ def handle_reconnect():
     logger.log_event("DISCONNECT_START")
     
     canvas_region = {
-        "left": 4 + CLIENT_OFFSET_X,
-        "top": 4 + CLIENT_OFFSET_Y,
+        "left": int(CLIENT_OFFSET_X),
+        "top": int(CLIENT_OFFSET_Y),
         "width": 765,
         "height": 503
     }
@@ -1179,8 +1204,8 @@ def main():
         while is_running:
             try:
                 stream_box = {
-                    "left": int(4 + CLIENT_OFFSET_X),
-                    "top": int(4 + CLIENT_OFFSET_Y),
+                    "left": int(CLIENT_OFFSET_X),
+                    "top": int(CLIENT_OFFSET_Y),
                     "width": 765,
                     "height": 503
                 }
