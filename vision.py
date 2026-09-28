@@ -44,93 +44,95 @@ def read_text_from_image(image_cv2):
 def detect_screen_action(image_cv2):
     """
     High-accuracy detector for OSRS Login, Welcome, and Disconnect screens.
-    Uses EasyOCR text-coordinate detection with pure CV color/shape fallback.
+    Uses EasyOCR exact phrase detection with strict rejection of in-game gameplay screens.
     Returns (action_type, (x, y)) target coordinates relative to canvas.
     """
     if image_cv2 is None:
         return None, None
 
-    # ── Method 1: EasyOCR Precision Text Targeting ───────────────────────────
+    # ── Method 1: EasyOCR Precision Phrase Detection ─────────────────────────
     reader = _get_ocr_reader()
     if reader is not None:
         try:
             results = reader.readtext(image_cv2, detail=1)
-            play_candidates = []
-            retry_candidates = []
-            login_candidates = []
-
+            extracted = []
+            all_text_list = []
+            
             for bbox, text, conf in results:
                 t_low = text.lower().strip()
-                words = t_low.split()
                 cx = int((bbox[0][0] + bbox[2][0]) / 2)
                 cy = int((bbox[0][1] + bbox[2][1]) / 2)
+                extracted.append((cx, cy, conf, t_low, bbox))
+                all_text_list.append(t_low)
+                
+            combined = " ".join(all_text_list)
 
-                # Focus on the game canvas area
-                if 120 <= cx <= 645 and 100 <= cy <= 450:
-                    # Match "Play", "Play Now", "Click here to play" (exact words)
-                    if "play" in words or "now" in words or "click" in words:
-                        play_candidates.append((cx, cy, conf, text))
-                    # Match "Try again", "Retry", "Disconnected"
-                    elif "try" in words or "again" in words or "retry" in words or "disconnected" in words:
-                        retry_candidates.append((cx, cy, conf, text))
-                    # Match "Existing User", "Login"
-                    elif "existing" in words or "login" in words or "user" in words:
-                        login_candidates.append((cx, cy, conf, text))
+            # 1. Welcome Screen ("Welcome to RuneScape" / "Click here to play" / "Play Now")
+            is_welcome = (
+                "welcome to runescape" in combined or
+                "welcome to" in combined or
+                "click here to play" in combined or
+                "click to play" in combined or
+                ("school" in combined and "world" in combined)
+            )
+            if is_welcome:
+                for cx, cy, conf, text, bbox in extracted:
+                    if 180 <= cx <= 585 and 150 <= cy <= 420:
+                        if any(k in text for k in ["play", "click", "now", "here"]):
+                            return "WELCOME_PLAY", (cx, cy)
+                return "WELCOME_PLAY", (382, 235)
 
-            # Prioritize Play buttons if found
-            if play_candidates:
-                best = max(play_candidates, key=lambda x: x[2])
-                return "WELCOME_PLAY", (best[0], best[1])
+            # 2. Disconnect / Retry Screen
+            is_disconnect = (
+                "try again" in combined or
+                "connection lost" in combined or
+                "attempting to re-establish" in combined or
+                "disconnected" in combined or
+                "error connecting to server" in combined
+            )
+            if is_disconnect:
+                for cx, cy, conf, text, bbox in extracted:
+                    if 180 <= cx <= 585 and 150 <= cy <= 420:
+                        if any(k in text for k in ["try", "again", "retry"]):
+                            return "DISCONNECT_RETRY", (cx, cy)
+                return "DISCONNECT_RETRY", (382, 275)
 
-            # Then Disconnect / Retry buttons
-            if retry_candidates:
-                best = max(retry_candidates, key=lambda x: x[2])
-                return "DISCONNECT_RETRY", (best[0], best[1])
+            # 3. Login Screen ("Existing User" / "Enter your username")
+            is_login = (
+                "existing user" in combined or
+                "new user" in combined or
+                "enter your username" in combined or
+                "enter username" in combined or
+                "invalid credentials" in combined or
+                ("runescape" in combined and "password" in combined)
+            )
+            if is_login:
+                for cx, cy, conf, text, bbox in extracted:
+                    if 180 <= cx <= 585 and 150 <= cy <= 420:
+                        if any(k in text for k in ["existing", "user", "login"]):
+                            return "LOGIN_BUTTON", (cx, cy)
+                return "LOGIN_BUTTON", (382, 250)
 
-            # Then Login buttons
-            if login_candidates:
-                best = max(login_candidates, key=lambda x: x[2])
-                return "LOGIN_BUTTON", (best[0], best[1])
+            # If none of the explicit screen phrases matched, this is an in-game screen or other UI
+            return None, None
+
         except Exception:
             pass
 
-    # ── Method 2: Pure CV Color & Contour Fallback ───────────────────────────
+    # ── Method 2: Pure CV Color & Contour Fallback (Restricted to Center Modals) ────
     hsv = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2HSV)
     
-    # Red Welcome Screen Button ("CLICK HERE TO PLAY")
-    r1 = cv2.inRange(hsv, (0, 70, 50), (12, 255, 255))
-    r2 = cv2.inRange(hsv, (168, 70, 50), (180, 255, 255))
+    # Red Welcome Screen Button ("CLICK HERE TO PLAY") - strictly in center box
+    center_roi_red = hsv[250:400, 220:545]
+    r1 = cv2.inRange(center_roi_red, (0, 90, 60), (10, 255, 255))
+    r2 = cv2.inRange(center_roi_red, (170, 90, 60), (180, 255, 255))
     red_mask = cv2.bitwise_or(r1, r2)
     contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
     for c in contours:
         x, y, bw, bh = cv2.boundingRect(c)
         area = cv2.contourArea(c)
-        if (bw >= 100 and bh >= 20 and area > 1800) or area > 10000:
-            if y < 420:
-                return "WELCOME_PLAY", (x + bw // 2, y + bh // 2)
-
-    # Gold Login Button ("Existing User" / "Play Now" / Character Box)
-    gold_mask = cv2.inRange(hsv, (12, 70, 70), (45, 255, 255))
-    g_contours, _ = cv2.findContours(gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    for c in g_contours:
-        x, y, bw, bh = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        if (bw >= 70 and bh >= 18 and area > 500) or area > 4000:
-            if y < 420:
-                return "LOGIN_BUTTON", (382, 235)
-
-    # Disconnect / Retry Dialog Box (White text clusters)
-    center_roi = image_cv2[150:350, 200:565]
-    white_text = cv2.inRange(center_roi, (180, 180, 180), (255, 255, 255))
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 3))
-    grouped = cv2.dilate(white_text, kernel, iterations=1)
-    t_contours, _ = cv2.findContours(grouped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    for tc in t_contours:
-        tx, ty, tw, th = cv2.boundingRect(tc)
-        if 40 <= tw <= 190 and 8 <= th <= 25 and 85 <= ty <= 145:
-            return "DISCONNECT_RETRY", (200 + tx + tw // 2, 150 + ty + th // 2)
+        if bw >= 140 and bh >= 25 and area > 2500 and (bw / float(max(1, bh))) > 2.2:
+            return "WELCOME_PLAY", (220 + x + bw // 2, 250 + y + bh // 2)
 
     return None, None
 

@@ -561,37 +561,69 @@ def get_minimap_center(img, default_x=78, default_y=75):
 # RECOVERY & FAILSAFES
 # =============================================================================
 
+def is_in_game():
+    """
+    Checks if the player is actively logged in to the game world.
+    Checks the HP orb for health/numbers, the Run orb, and ensures the title screen is absent.
+    """
+    orb_region = {
+        "left": 546 + CLIENT_OFFSET_X, 
+        "top": 42 + CLIENT_OFFSET_Y, 
+        "width": 26, 
+        "height": 26
+    }
+    img = capture_region(orb_region)
+    if img is None:
+        return False
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    r1 = cv2.inRange(hsv, (0, 60, 50), (12, 255, 255))
+    r2 = cv2.inRange(hsv, (168, 60, 50), (180, 255, 255))
+    hp_red = cv2.countNonZero(r1) + cv2.countNonZero(r2)
+    # If the HP orb has >= 10 red pixels (heart icon or health), player is in game
+    if hp_red >= 10:
+        return True
+        
+    # Check Run orb as secondary indicator
+    run_region = {
+        "left": 565 + CLIENT_OFFSET_X,
+        "top": 110 + CLIENT_OFFSET_Y,
+        "width": 26,
+        "height": 26
+    }
+    img_run = capture_region(run_region)
+    if img_run is not None:
+        hsv_run = cv2.cvtColor(img_run, cv2.COLOR_BGR2HSV)
+        run_yellow = cv2.countNonZero(cv2.inRange(hsv_run, (15, 60, 60), (38, 255, 255)))
+        if run_yellow >= 25:
+            return True
+
+    return False
+
 def handle_reconnect():
     """
     Detects if we are disconnected (HP orb missing).
     Attempts a 120-second recovery by dynamically detecting Disconnect / Retry popups,
     the Red 'Click here to play' welcome button, and Gold 'Play Now' login buttons.
     """
-    def is_in_game():
-        orb_region = {
-            "left": 546 + CLIENT_OFFSET_X, 
-            "top": 42 + CLIENT_OFFSET_Y, 
-            "width": 26, 
-            "height": 26
-        }
-        img = capture_region(orb_region)
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        r1 = cv2.inRange(hsv, (0, 100, 80), (10, 255, 255))
-        r2 = cv2.inRange(hsv, (170, 100, 80), (180, 255, 255))
-        return (cv2.countNonZero(r1) + cv2.countNonZero(r2)) > 50
-
     if is_in_game():
         return False
 
-    print("\n    [!] Disconnect detected. Starting 120s recovery loop...")
-    logger.log_event("DISCONNECT_START")
-    
     canvas_region = {
         "left": int(CLIENT_OFFSET_X),
         "top": int(CLIENT_OFFSET_Y),
         "width": 765,
         "height": 503
     }
+    
+    # Capture canvas and verify an actual reconnect/welcome/login screen is visible
+    img = capture_region(canvas_region)
+    action, coords = detect_screen_action(img)
+    if action is None:
+        # No disconnect or title screen is active - do nothing to prevent false clicks
+        return False
+
+    print(f"\n    [!] Disconnect/Title state detected ({action}). Starting recovery loop...")
+    logger.log_event("DISCONNECT_START")
     
     start_time = time.time()
     
@@ -602,8 +634,6 @@ def handle_reconnect():
             return True
 
         img = capture_region(canvas_region)
-        
-        # 1. High-accuracy screen action detection (handles Welcome, Retry dialog, Login)
         action, coords = detect_screen_action(img)
         
         if action == "WELCOME_PLAY":
@@ -632,13 +662,8 @@ def handle_reconnect():
             time.sleep(random.gauss(5.0, 0.5))
             continue
             
-        # 2. Universal Fallback: Click center of popup area and press Enter / Space
-        print("    [*] Universal Reconnect Fallback: Clicking center & sending Enter/Space...")
-        cv2.imwrite("debug_fallback_screen.png", img)
-        click_at(canvas_region["left"] + 382, canvas_region["top"] + 266, variation=10)
-        pyautogui.press('enter')
-        pyautogui.press('space')
-        time.sleep(random.gauss(4.0, 0.5))
+        # If no recognized screen action, wait peacefully instead of clicking random pixels
+        time.sleep(2.0)
 
     print("    [-] Recovery loop timed out. Could not reconnect.")
     logger.log_event("DISCONNECT_TIMEOUT")
@@ -1262,8 +1287,8 @@ def main():
                     is_running = False
                     break
                 
-                # Try to handle disconnect/6-hour log if we are completely idle
-                if time_out_of_combat > 15:
+                # Try to handle disconnect/6-hour log if we are completely idle and interface is lost
+                if time_out_of_combat > 20 and not is_in_game():
                     if handle_reconnect():
                         # If we reconnected, reset the combat timer to give it time to load in
                         last_combat_time = time.time()
