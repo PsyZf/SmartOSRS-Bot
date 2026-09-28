@@ -11,7 +11,7 @@ from mss import MSS
 
 # Import our new Smart modules
 from logger import logger
-from vision import read_text_from_image, find_text_coordinates
+from vision import read_text_from_image, find_text_coordinates, detect_screen_action
 
 # Setup command line arguments for flexible run-case usage
 parser = argparse.ArgumentParser(description="OSRS Sand Crab Bot")
@@ -537,8 +537,8 @@ def get_minimap_center(img, default_x=78, default_y=75):
 def handle_reconnect():
     """
     Detects if we are disconnected (HP orb missing).
-    Attempts a 70-second recovery by dynamically clicking the Gold 'Play Now' button 
-    and the Red 'Click here to play' button anywhere on the canvas.
+    Attempts a 120-second recovery by dynamically detecting Disconnect / Retry popups,
+    the Red 'Click here to play' welcome button, and Gold 'Play Now' login buttons.
     """
     def is_in_game():
         orb_region = {
@@ -556,10 +556,9 @@ def handle_reconnect():
     if is_in_game():
         return False
 
-    print("\n    [!] Disconnect detected. Starting 70s recovery loop...")
+    print("\n    [!] Disconnect detected. Starting 120s recovery loop...")
     logger.log_event("DISCONNECT_START")
     
-    # We scan the entire 765x503 fixed mode canvas
     canvas_region = {
         "left": 4 + CLIENT_OFFSET_X,
         "top": 4 + CLIENT_OFFSET_Y,
@@ -569,7 +568,7 @@ def handle_reconnect():
     
     start_time = time.time()
     
-    while time.time() - start_time < 70:
+    while time.time() - start_time < 120:
         if is_in_game():
             print("    [+] Successfully logged back in!")
             logger.log_event("DISCONNECT_RECOVERED")
@@ -577,57 +576,42 @@ def handle_reconnect():
 
         img = capture_region(canvas_region)
         
-        # Try to read screen text using OCR to understand the state
-        try:
-            screen_text = read_text_from_image(img)
-            if screen_text:
-                logger.log_event("OCR_READ", {"text": screen_text[:200]})
-                if "already logged in" in screen_text.lower() or "error connecting" in screen_text.lower():
-                    print(f"    [!] Unrecoverable login error detected: {screen_text[:50]}")
-                    logger.log_event("UNRECOVERABLE_DISCONNECT")
-                    return False
-        except Exception as e:
-            pass # Tesseract not installed or failed
+        # 1. High-accuracy screen action detection (handles Welcome, Retry dialog, Login)
+        action, coords = detect_screen_action(img)
         
-        # 1. OCR check for 'Play' text (Jagex Login or Welcome Screen)
-        play_coords = find_text_coordinates(img, "play")
-        if play_coords:
-            cx, cy = play_coords
-            print("    [*] Detected 'Play' text via OCR. Clicking...")
-            cv2.imwrite("debug_login_screen.png", img)
-            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=15)
-            time.sleep(random.gauss(6.0, 1.0))
-            continue
-            
-        # 2. Check for RED 'Click here to play' button (Welcome Screen fallback)
-        red_centers = find_color_centers(img, (0, 150, 100), (10, 255, 255), min_area=3000, max_area=None)
-        if not red_centers:
-            red_centers = find_color_centers(img, (170, 150, 100), (180, 255, 255), min_area=3000, max_area=None)
-            
-        if red_centers:
-            print("    [*] Detected Welcome Screen. Clicking massive red 'Play' button...")
+        if action == "WELCOME_PLAY":
+            cx, cy = coords
+            print(f"    [*] Detected Welcome Screen ({cx}, {cy}). Clicking 'Click here to play'...")
             cv2.imwrite("debug_welcome_screen.png", img)
-            cx, cy = red_centers[0]
-            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=20)
+            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=10)
+            pyautogui.press('space')
             time.sleep(random.gauss(5.0, 0.5))
             continue
             
-        # 2. Check for GOLD/YELLOW 'Play Now' button (Jagex Login Screen)
-        gold_centers = find_color_centers(img, (15, 100, 100), (45, 255, 255), min_area=1500, max_area=None)
-        
-        if gold_centers:
-            print("    [*] Detected Login Screen. Clicking Gold 'Play Now' button...")
-            cv2.imwrite("debug_login_screen.png", img)
-            cx, cy = gold_centers[0]
-            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=20)
-            time.sleep(random.gauss(6.0, 1.0))
+        elif action == "DISCONNECT_RETRY":
+            cx, cy = coords
+            print(f"    [*] Detected Disconnect/Retry Screen ({cx}, {cy}). Clicking 'Try again'...")
+            cv2.imwrite("debug_fallback_screen.png", img)
+            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=8)
+            pyautogui.press('enter')
+            time.sleep(random.gauss(4.0, 0.5))
             continue
             
-        # 3. Fallback: Grey "Try again" popup or similar
-        print("    [*] Clicking canvas center as fallback for 'Try again' popup...")
+        elif action == "LOGIN_BUTTON":
+            cx, cy = coords
+            print(f"    [*] Detected Login Screen ({cx}, {cy}). Clicking Login/Play...")
+            cv2.imwrite("debug_login_screen.png", img)
+            click_at(canvas_region["left"] + cx, canvas_region["top"] + cy, variation=10)
+            time.sleep(random.gauss(5.0, 0.5))
+            continue
+            
+        # 2. Universal Fallback: Click center of popup area and press Enter / Space
+        print("    [*] Universal Reconnect Fallback: Clicking center & sending Enter/Space...")
         cv2.imwrite("debug_fallback_screen.png", img)
-        click_at(canvas_region["left"] + 382, canvas_region["top"] + 251, variation=15)
-        time.sleep(random.gauss(6.0, 1.0))
+        click_at(canvas_region["left"] + 382, canvas_region["top"] + 266, variation=10)
+        pyautogui.press('enter')
+        pyautogui.press('space')
+        time.sleep(random.gauss(4.0, 0.5))
 
     print("    [-] Recovery loop timed out. Could not reconnect.")
     logger.log_event("DISCONNECT_TIMEOUT")
