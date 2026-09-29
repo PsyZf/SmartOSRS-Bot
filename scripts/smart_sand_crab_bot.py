@@ -1403,7 +1403,12 @@ def main():
             since_reset   = current_time - last_aggro_reset
             
             # ── System Update Check ────────────────────────────────────────────────
-            if loop_count % 10 == 0:
+            # Run OCR once every 3 minutes (180 seconds) to save performance
+            if not hasattr(get_system_update_timer, 'last_run'):
+                get_system_update_timer.last_run = 0
+                
+            if current_time - get_system_update_timer.last_run > 180:
+                get_system_update_timer.last_run = current_time
                 update_mins = get_system_update_timer()
                 if update_mins is not None and update_mins <= 5:
                     handle_maintenance()
