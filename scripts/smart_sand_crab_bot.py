@@ -1488,22 +1488,35 @@ def main():
 
             # ── Crasher Protection (Red Tile Detection) ───────────────────────────
             global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time
-            if loop_count % 3 == 0:
-                if is_crasher_present():
-                    last_crasher_time = current_time
-                    if ACTIVE_HOME_NAME == "Magenta (Home)":
-                        print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to White (Backup) tile...")
-                        ACTIVE_HOME_LOW  = MARKER_WHITE_LOW
-                        ACTIVE_HOME_HIGH = MARKER_WHITE_HIGH
-                        ACTIVE_HOME_NAME = "White (Backup)"
-                        check_home_alignment() # Walk to new backup home
-                else:
-                    if ACTIVE_HOME_NAME == "White (Backup)" and (current_time - last_crasher_time > 90):
-                        print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
-                        ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
-                        ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
-                        ACTIVE_HOME_NAME = "Magenta (Home)"
-                        check_home_alignment() # Walk back to primary home
+            if is_crasher_present():
+                last_crasher_time = current_time
+                if ACTIVE_HOME_NAME == "Magenta (Home)":
+                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to White (Backup) tile...")
+                    ACTIVE_HOME_LOW  = MARKER_WHITE_LOW
+                    ACTIVE_HOME_HIGH = MARKER_WHITE_HIGH
+                    ACTIVE_HOME_NAME = "White (Backup)"
+                    
+                    print("    [*] Enforcing immediate movement to White (Backup)...")
+                    for _ in range(3):
+                        needs_correction = check_home_alignment()
+                        if not needs_correction:
+                            print("    [+] Successfully confirmed arrival at White (Backup) tile.")
+                            break
+                        time.sleep(3.5)
+            else:
+                if ACTIVE_HOME_NAME == "White (Backup)" and (current_time - last_crasher_time > 90):
+                    print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
+                    ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
+                    ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
+                    ACTIVE_HOME_NAME = "Magenta (Home)"
+                    
+                    print("    [*] Enforcing immediate movement back to Magenta (Home)...")
+                    for _ in range(3):
+                        needs_correction = check_home_alignment()
+                        if not needs_correction:
+                            print("    [+] Successfully confirmed arrival at Magenta (Home) tile.")
+                            break
+                        time.sleep(3.5)
 
             # ── Periodic alignment check ──────────────────────────────────────────
             # Check every 2-4 minutes (instead of every 60 seconds) to look more human
