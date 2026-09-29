@@ -1290,11 +1290,15 @@ def main():
 
             # ── Aggro reset check ─────────────────────────────────────────────────
             if since_reset > RESET_TIME:
-                reset_aggro()
-                last_aggro_reset = time.time()
-                last_combat_time = time.time() # Reset combat timer so we don't spam warning
-                RESET_TIME = next_reset_time()
-                print(f"[*] Next aggro reset in {RESET_TIME}s ({RESET_TIME/60:.1f} min)")
+                if time_out_of_combat > 3:
+                    print(f"\n[*] Aggro timer expired ({RESET_TIME/60:.1f} min). Out of combat, resetting now...")
+                    reset_aggro()
+                    last_aggro_reset = time.time()
+                    last_combat_time = time.time() # Reset combat timer so we don't spam warning
+                    RESET_TIME = next_reset_time()
+                    print(f"[*] Next aggro reset in {RESET_TIME}s ({RESET_TIME/60:.1f} min)")
+                elif time_out_of_combat == 0 and loop_count % 10 == 0:
+                    print(f"    [*] Aggro timer expired, but waiting for current combat to finish before resetting...")
 
             # ── Periodic alignment check ──────────────────────────────────────────
             # Check every 60 seconds. Don't do it right after/during a reset.
