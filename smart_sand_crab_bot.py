@@ -886,7 +886,10 @@ def reset_aggro():
         return
 
     print("[*] Aggro reset complete. Verifying home tile alignment...")
-    time.sleep(1.0)
+    time.sleep(2.0)
+    check_home_alignment()
+    time.sleep(3.0)
+    print("    [*] Secondary alignment check to ensure player has settled...")
     check_home_alignment()
 
 
@@ -1301,8 +1304,8 @@ def main():
                     print(f"    [*] Aggro timer expired, but waiting for current combat to finish before resetting...")
 
             # ── Periodic alignment check ──────────────────────────────────────────
-            # Check every 60 seconds. Don't do it right after/during a reset.
-            if current_time - last_alignment_check > 60:
+            # Check every 2-4 minutes (instead of every 60 seconds) to look more human
+            if current_time - last_alignment_check > random.randint(120, 240):
                 if since_reset > 15 and since_reset < RESET_TIME - 15:
                     check_home_alignment()
                 last_alignment_check = current_time
