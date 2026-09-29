@@ -130,8 +130,8 @@ last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
 last_antiban_time = 0
 
-MARKER_WHITE_LOW  = (0, 0, 200)
-MARKER_WHITE_HIGH = (180, 40, 255)
+MARKER_GREEN_LOW  = (45, 100, 100)
+MARKER_GREEN_HIGH = (75, 255, 255)
 
 MARKER_MAGENTA_LOW  = (140, 215, 149)
 MARKER_MAGENTA_HIGH = (160, 255, 255)
@@ -1509,20 +1509,20 @@ def main():
             if is_crasher_present():
                 last_crasher_time = current_time
                 if ACTIVE_HOME_NAME == "Magenta (Home)":
-                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to White (Backup) tile...")
-                    ACTIVE_HOME_LOW  = MARKER_WHITE_LOW
-                    ACTIVE_HOME_HIGH = MARKER_WHITE_HIGH
-                    ACTIVE_HOME_NAME = "White (Backup)"
+                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to Green (Backup) tile...")
+                    ACTIVE_HOME_LOW  = MARKER_GREEN_LOW
+                    ACTIVE_HOME_HIGH = MARKER_GREEN_HIGH
+                    ACTIVE_HOME_NAME = "Green (Backup)"
                     
-                    print("    [*] Enforcing immediate movement to White (Backup)...")
+                    print("    [*] Enforcing immediate movement to Green (Backup)...")
                     for _ in range(3):
                         needs_correction = check_home_alignment()
                         if not needs_correction:
-                            print("    [+] Successfully confirmed arrival at White (Backup) tile.")
+                            print("    [+] Successfully confirmed arrival at Green (Backup) tile.")
                             break
                         time.sleep(3.5)
             else:
-                if ACTIVE_HOME_NAME == "White (Backup)" and (current_time - last_crasher_time > 90):
+                if ACTIVE_HOME_NAME == "Green (Backup)" and (current_time - last_crasher_time > 90):
                     print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
                     ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                     ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
