@@ -854,7 +854,7 @@ def reset_aggro():
         while waited < max_wait:
             fresh = get_markers(color_low, color_high)
             if fresh:
-                return min(fresh, key=dist_from_center)
+                return min(fresh, key=lambda pt: pt[1])
             time.sleep(POLL_INTERVAL)
             waited += POLL_INTERVAL
         print(f"    [!] {name} marker not found.")
@@ -864,7 +864,7 @@ def reset_aggro():
     cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
     if cyan_markers:
         print("    [+] Cyan (Mid) marker detected. Initiating 3-point route...")
-        cyan_target = min(cyan_markers, key=dist_from_center)
+        cyan_target = min(cyan_markers, key=lambda pt: pt[1])
         walk_to_target(cyan_target, "Cyan (Mid)")
     else:
         print("    [-] No Cyan (Mid) marker detected. Initiating 2-point route...")
@@ -1270,8 +1270,13 @@ def is_crasher_present():
         if area > 180: # Tile markers are large polygons, health bars are small rectangles
             x, y, w, h = cv2.boundingRect(c)
             ratio = w / float(h)
-            if 0.5 < ratio < 4.0: # Exclude extreme long thin lines (just in case)
-                return True
+            if 0.5 < ratio < 4.0: # Exclude extreme long thin lines
+                # Only trigger if the red tile is explicitly overlapping/near our home tile (center of screen)
+                # 3D viewport center is (256, 167). One tile is ~40px. 60px radius = 3x3 tile area.
+                cx = x + (w / 2)
+                cy = y + (h / 2)
+                if abs(cx - 256) < 65 and abs(cy - 167) < 65:
+                    return True
     return False
 
 def check_home_alignment():
