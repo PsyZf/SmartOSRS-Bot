@@ -1305,7 +1305,7 @@ def check_home_alignment():
     # Ground markers in 3D view are large polygons. 
     min_a = 50
     max_a = None
-    tolerance = 25  # 25 pixels is just under 1 tile width in 3D view
+    tolerance = 8  # 8 pixels ensures it rigidly snaps to the exact center of the tile
     
     img = capture_region(region)
     m_centers = find_color_centers(img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=min_a, max_area=max_a)
@@ -1446,12 +1446,27 @@ def main():
                     is_running = False
                     break
                 
-                # Try to handle disconnect/6-hour log if we are completely idle and interface is lost
-                if time_out_of_combat > 20 and not is_in_game():
-                    if handle_reconnect():
-                        # If we reconnected, reset the combat timer to give it time to load in
-                        last_combat_time = time.time()
-                        continue
+                # Handle Disconnects or Obscuring Interfaces (like accidentally opening the World Map)
+                if not is_in_game():
+                    obscured_ticks = getattr(main, 'obscured_ticks', 0) + 1
+                    main.obscured_ticks = obscured_ticks
+                    
+                    # If screen is hidden for ~10 seconds
+                    if obscured_ticks > 4:
+                        if handle_reconnect():
+                            # It was a disconnect and we logged back in
+                            last_combat_time = time.time()
+                            main.obscured_ticks = 0
+                            continue
+                        else:
+                            # Not logged out, but we still can't see the game! World Map must be open.
+                            print("    [!] Screen is obscured (World Map opened accidentally?). Pressing Esc to close.")
+                            import pyautogui, time
+                            pyautogui.press('esc')
+                            time.sleep(1.5)
+                            main.obscured_ticks = 0
+                else:
+                    main.obscured_ticks = 0
 
                 # Out of combat periodic status notification
                 if 25 <= time_out_of_combat < 60 and loop_count % 8 == 0:
