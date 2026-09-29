@@ -1137,17 +1137,18 @@ def get_system_update_timer():
     """
     view_3d = {
         "left": GAME_VIEWPORT["left"],
-        "top": GAME_VIEWPORT["top"] + 290,
-        "width": 250,
-        "height": 44
+        "top": GAME_VIEWPORT["top"] + 234,  # Look at the bottom 100 pixels
+        "width": 512,                       # Full width just in case
+        "height": 100
     }
     img = capture_region(view_3d)
     if img is None:
         return None
         
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    lower_yellow = np.array([25, 200, 200])
-    upper_yellow = np.array([35, 255, 255])
+    # Loosen yellow bounds to account for text blending
+    lower_yellow = np.array([20, 100, 150])
+    upper_yellow = np.array([40, 255, 255])
     mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
     
     if cv2.countNonZero(mask) < 20:
@@ -1161,13 +1162,19 @@ def get_system_update_timer():
     try:
         results = reader.readtext(mask, detail=0)
         combined = " ".join(results).lower()
-        if "update" in combined:
+        if combined.strip():
+            print(f"    [DEBUG-TIMER] Saw yellow text, OCR: '{combined}'")
+            
+        if "update" in combined or "system" in combined:
             import re
-            match = re.search(r'(\d+):(\d+)', combined)
+            # Match the first number we see (e.g., '4' in 'update in 4:00' or '4:oo')
+            match = re.search(r'(\d+)', combined)
             if match:
                 minutes = int(match.group(1))
+                print(f"    [!] Parsed update timer: {minutes} minutes")
                 return minutes
-    except Exception:
+    except Exception as e:
+        print(f"    [DEBUG-TIMER] Error: {e}")
         pass
         
     return None
