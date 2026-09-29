@@ -1279,10 +1279,12 @@ def is_crasher_present():
             ratio = w / float(h)
             if 0.5 < ratio < 4.0: # Exclude extreme long thin lines
                 # Only trigger if the red tile is explicitly overlapping/near our home tile (center of screen)
-                # 3D viewport center is (256, 167). One tile is ~40px. 60px radius = 3x3 tile area.
+                # 3D viewport center is (256, 167). One tile is ~40px.
+                # STRICT mode: Only trigger if the red tile is dead-center (exactly on our standing tile).
+                # 15px radius ensures it ONLY triggers if they are sharing our exact tile.
                 cx = x + (w / 2)
                 cy = y + (h / 2)
-                if abs(cx - 256) < 65 and abs(cy - 167) < 65:
+                if abs(cx - 256) < 15 and abs(cy - 167) < 15:
                     return True
     return False
 
