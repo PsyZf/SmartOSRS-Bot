@@ -129,6 +129,17 @@ last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
 last_antiban_time = 0
 
+MARKER_WHITE_LOW  = (0, 0, 200)
+MARKER_WHITE_HIGH = (180, 40, 255)
+
+MARKER_MAGENTA_LOW  = (140, 215, 149)
+MARKER_MAGENTA_HIGH = (160, 255, 255)
+
+ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
+ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
+ACTIVE_HOME_NAME = "Magenta (Home)"
+last_crasher_time = 0
+
 def stop_bot():
     global is_running
     is_running = False
@@ -876,10 +887,10 @@ def reset_aggro():
             recover_path()
             return
 
-    # Step 4: Walk back to Home (Magenta)
-    home_coord = poll_marker(MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH, "Magenta (Home)")
+    # Step 4: Walk back to Home
+    home_coord = poll_marker(ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME)
     if home_coord:
-        walk_to_target(home_coord, "Magenta (Home)")
+        walk_to_target(home_coord, ACTIVE_HOME_NAME)
     else:
         print("    [!] Home marker not found!")
         recover_path()
@@ -1118,15 +1129,44 @@ def interactive_startup_menu():
             WORLD_CLICK_NAV = not WORLD_CLICK_NAV
             print(f"  -> 3D World Click Nav set to {'ON' if WORLD_CLICK_NAV else 'OFF'}.")
 
+def is_crasher_present():
+    """
+    Scans the 3D game world for a Red tile (Player indicator), avoiding health bars.
+    If a large Red square/polygon is found, another player is standing on our tile or nearby.
+    """
+    img = capture_region(GAME_VIEWPORT)
+    if img is None:
+        return False
+    
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    # Red wraps around HSV 0 and 180
+    mask1 = cv2.inRange(hsv, (0, 150, 150), (10, 255, 255))
+    mask2 = cv2.inRange(hsv, (170, 150, 150), (180, 255, 255))
+    red_mask = cv2.bitwise_or(mask1, mask2)
+    
+    # Mask out fixed UI elements (Minimap, Chatbox) to avoid hitsplats or map dots
+    red_mask[0:170, 550:] = 0
+    red_mask[340:, 0:520] = 0
+    
+    contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area > 180: # Tile markers are large polygons, health bars are small rectangles
+            x, y, w, h = cv2.boundingRect(c)
+            ratio = w / float(h)
+            if 0.5 < ratio < 4.0: # Exclude extreme long thin lines (just in case)
+                return True
+    return False
+
 def check_home_alignment():
     """
-    Periodic self-correction: Checks if the player is perfectly centered on the Home (Magenta) tile.
+    Periodic self-correction: Checks if the player is perfectly centered on the Active Home tile.
     Because the player is always at the dead-center of the minimap (or 3D view), 
-    the Magenta ground marker should be mathematically centered on the screen.
+    the active ground marker should be mathematically centered on the screen.
     If it's more than a few pixels off, we walk to correct it.
     """
-    MARKER_MAGENTA_LOW  = (140, 215, 149)
-    MARKER_MAGENTA_HIGH = (160, 255, 255)
+    global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME
 
     if WORLD_CLICK_NAV:
         offset_x = GAME_VIEWPORT["left"]
@@ -1151,7 +1191,7 @@ def check_home_alignment():
     if not WORLD_CLICK_NAV:
         mc_x, mc_y = get_minimap_center(img, mc_x, mc_y)
 
-    m_centers = find_color_centers(img, MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH, min_area=min_a, max_area=max_a)
+    m_centers = find_color_centers(img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=min_a, max_area=max_a)
 
     if m_centers:
         def dist_to_mc(p):
@@ -1302,6 +1342,23 @@ def main():
                     print(f"[*] Next aggro reset in {RESET_TIME}s ({RESET_TIME/60:.1f} min)")
                 elif time_out_of_combat == 0 and loop_count % 10 == 0:
                     print(f"    [*] Aggro timer expired, but waiting for current combat to finish before resetting...")
+
+            # ── Crasher Protection (Red Tile Detection) ───────────────────────────
+            global ACTIVE_HOME_COLOR, ACTIVE_HOME_NAME, last_crasher_time
+            if loop_count % 3 == 0:
+                if is_crasher_present():
+                    last_crasher_time = current_time
+                    if ACTIVE_HOME_NAME == "Magenta (Home)":
+                        print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to White (Backup) tile...")
+                        ACTIVE_HOME_COLOR = (MARKER_WHITE_LOW, MARKER_WHITE_HIGH)
+                        ACTIVE_HOME_NAME = "White (Backup)"
+                        check_home_alignment() # Walk to new backup home
+                else:
+                    if ACTIVE_HOME_NAME == "White (Backup)" and (current_time - last_crasher_time > 90):
+                        print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
+                        ACTIVE_HOME_COLOR = (MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH)
+                        ACTIVE_HOME_NAME = "Magenta (Home)"
+                        check_home_alignment() # Walk back to primary home
 
             # ── Periodic alignment check ──────────────────────────────────────────
             # Check every 2-4 minutes (instead of every 60 seconds) to look more human
