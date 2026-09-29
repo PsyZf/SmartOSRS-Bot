@@ -608,16 +608,25 @@ def handle_reconnect():
         "height": 503
     }
     
-    # Capture canvas and verify an actual reconnect/welcome/login screen is visible
-    img = capture_region(canvas_region)
-    action, coords = detect_screen_action(img)
-    if action is None:
-        # No disconnect or title screen is active - do nothing to prevent false clicks
+    # Wait up to 10 seconds for the screen to fade in from black and show login/welcome UI
+    start_time = time.time()
+    detected_action = None
+    while time.time() - start_time < 10:
+        img = capture_region(canvas_region)
+        action, coords = detect_screen_action(img)
+        if action is not None:
+            detected_action = action
+            break
+        time.sleep(1.0)
+        
+    if detected_action is None:
+        # No disconnect or title screen is active after waiting - might be world map
         return False
 
-    print(f"\n    [!] Disconnect/Title state detected ({action}). Starting recovery loop...")
+    print(f"\n    [!] Disconnect/Title state detected ({detected_action}). Starting recovery loop...")
     logger.log_event("DISCONNECT_START")
     
+    # Reset start time for the 120s loop
     start_time = time.time()
     
     while time.time() - start_time < 120:
@@ -1476,6 +1485,7 @@ def main():
                             pyautogui.press('esc')
                             time.sleep(1.5)
                             main.obscured_ticks = 0
+                            continue
                 else:
                     main.obscured_ticks = 0
 

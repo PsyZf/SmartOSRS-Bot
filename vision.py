@@ -117,16 +117,26 @@ def detect_screen_action(image_cv2):
     hsv = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2HSV)
     
     # Red Welcome Screen Button ("CLICK HERE TO PLAY") - strictly in center box
-    center_roi_red = hsv[250:400, 220:545]
-    r1 = cv2.inRange(center_roi_red, (0, 90, 60), (10, 255, 255))
-    r2 = cv2.inRange(center_roi_red, (170, 90, 60), (180, 255, 255))
+    center_roi = hsv[200:420, 220:545]
+    
+    r1 = cv2.inRange(center_roi, (0, 90, 60), (10, 255, 255))
+    r2 = cv2.inRange(center_roi, (170, 90, 60), (180, 255, 255))
     red_mask = cv2.bitwise_or(r1, r2)
     contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for c in contours:
         x, y, bw, bh = cv2.boundingRect(c)
         area = cv2.contourArea(c)
         if bw >= 140 and bh >= 25 and area > 2500 and (bw / float(max(1, bh))) > 2.2:
-            return "WELCOME_PLAY", (220 + x + bw // 2, 250 + y + bh // 2)
+            return "WELCOME_PLAY", (220 + x + bw // 2, 200 + y + bh // 2)
+
+    # Gold/Yellow Login Screen Buttons ("Existing User" / "Play Now")
+    gold_mask = cv2.inRange(center_roi, (10, 100, 100), (35, 255, 255))
+    contours, _ = cv2.findContours(gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        x, y, bw, bh = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
+        if bw >= 100 and bh >= 25 and area > 1500 and (bw / float(max(1, bh))) > 2.0:
+            return "LOGIN_BUTTON", (220 + x + bw // 2, 200 + y + bh // 2)
 
     return None, None
 
