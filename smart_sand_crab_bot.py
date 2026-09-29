@@ -1134,7 +1134,15 @@ def is_crasher_present():
     Scans the 3D game world for a Red tile (Player indicator), avoiding health bars.
     If a large Red square/polygon is found, another player is standing on our tile or nearby.
     """
-    img = capture_region(GAME_VIEWPORT)
+    # The actual 3D game viewport in Fixed Mode is strictly 512x334 (top-left).
+    # This completely excludes the minimap, inventory, and chatbox.
+    view_3d = {
+        "left": GAME_VIEWPORT["left"],
+        "top": GAME_VIEWPORT["top"],
+        "width": 512,
+        "height": 334
+    }
+    img = capture_region(view_3d)
     if img is None:
         return False
     
@@ -1144,10 +1152,6 @@ def is_crasher_present():
     mask1 = cv2.inRange(hsv, (0, 150, 150), (10, 255, 255))
     mask2 = cv2.inRange(hsv, (170, 150, 150), (180, 255, 255))
     red_mask = cv2.bitwise_or(mask1, mask2)
-    
-    # Mask out fixed UI elements (Minimap, Chatbox) to avoid hitsplats or map dots
-    red_mask[0:170, 550:] = 0
-    red_mask[340:, 0:520] = 0
     
     contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for c in contours:
@@ -1344,19 +1348,21 @@ def main():
                     print(f"    [*] Aggro timer expired, but waiting for current combat to finish before resetting...")
 
             # ── Crasher Protection (Red Tile Detection) ───────────────────────────
-            global ACTIVE_HOME_COLOR, ACTIVE_HOME_NAME, last_crasher_time
+            global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time
             if loop_count % 3 == 0:
                 if is_crasher_present():
                     last_crasher_time = current_time
                     if ACTIVE_HOME_NAME == "Magenta (Home)":
                         print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to White (Backup) tile...")
-                        ACTIVE_HOME_COLOR = (MARKER_WHITE_LOW, MARKER_WHITE_HIGH)
+                        ACTIVE_HOME_LOW  = MARKER_WHITE_LOW
+                        ACTIVE_HOME_HIGH = MARKER_WHITE_HIGH
                         ACTIVE_HOME_NAME = "White (Backup)"
                         check_home_alignment() # Walk to new backup home
                 else:
                     if ACTIVE_HOME_NAME == "White (Backup)" and (current_time - last_crasher_time > 90):
                         print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
-                        ACTIVE_HOME_COLOR = (MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH)
+                        ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
+                        ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
                         ACTIVE_HOME_NAME = "Magenta (Home)"
                         check_home_alignment() # Walk back to primary home
 
