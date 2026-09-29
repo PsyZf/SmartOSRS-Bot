@@ -1320,8 +1320,20 @@ def check_home_alignment():
         dist = dist_to_mc(closest_m)
         
         if dist > tolerance:
-            print(f"    [*] Alignment Check: Off-center by {dist:.1f}px (Limit {tolerance}). Correcting...")
-            click_at(closest_m[0] + offset_x, closest_m[1] + offset_y, variation=4)
+            print(f"    [*] Alignment Check: Off-center by {dist:.1f}px (Limit {tolerance}). Correcting via minimap...")
+            
+            # Use the minimap to click and walk, avoiding attacking monsters in the 3D view
+            mm_img = capture_region(MINIMAP_REGION)
+            mm_centers = find_color_centers(mm_img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=2, max_area=350)
+            
+            if mm_centers:
+                # Sort top-down
+                closest_mm = min(mm_centers, key=lambda pt: pt[1])
+                click_at(closest_mm[0] + MINIMAP_REGION["left"], closest_mm[1] + MINIMAP_REGION["top"], variation=2)
+            else:
+                # Fallback to 3D view click if minimap marker not found
+                click_at(closest_m[0] + offset_x, closest_m[1] + offset_y, variation=4)
+                
             time.sleep(random.gauss(2.5, 0.5))
             return True
         else:
