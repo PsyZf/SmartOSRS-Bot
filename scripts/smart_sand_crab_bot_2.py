@@ -1130,6 +1130,116 @@ def interactive_startup_menu():
             WORLD_CLICK_NAV = not WORLD_CLICK_NAV
             print(f"  -> 3D World Click Nav set to {'ON' if WORLD_CLICK_NAV else 'OFF'}.")
 
+def get_system_update_timer():
+    """
+    Checks the bottom-left of the 3D viewport for the yellow "System update in X:XX" text.
+    Returns the number of minutes remaining if found, else None.
+    """
+    view_3d = {
+        "left": GAME_VIEWPORT["left"],
+        "top": GAME_VIEWPORT["top"] + 290,
+        "width": 250,
+        "height": 44
+    }
+    img = capture_region(view_3d)
+    if img is None:
+        return None
+        
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    lower_yellow = np.array([25, 200, 200])
+    upper_yellow = np.array([35, 255, 255])
+    mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+    
+    if cv2.countNonZero(mask) < 20:
+        return None
+        
+    from vision import _get_ocr_reader
+    reader = _get_ocr_reader()
+    if reader is None:
+        return None
+        
+    try:
+        results = reader.readtext(mask, detail=0)
+        combined = " ".join(results).lower()
+        if "update" in combined:
+            import re
+            match = re.search(r'(\d+):(\d+)', combined)
+            if match:
+                minutes = int(match.group(1))
+                return minutes
+    except Exception:
+        pass
+        
+    return None
+
+def handle_maintenance():
+    """
+    Executes the maintenance recovery sequence:
+    1. Logs out immediately.
+    2. Sleeps for 10 minutes.
+    3. Tries to log back in.
+    4. Repeats for up to 1 hour (6 attempts).
+    """
+    global is_running
+    print("\n[WARNING] SYSTEM UPDATE DETECTED! Initiating maintenance protocol...")
+    
+    print("    [*] Logging out for safety...")
+    # Click Logout Tab (4th tab on bottom row)
+    click_at(GAME_VIEWPORT["left"] + 645, GAME_VIEWPORT["top"] + 483, variation=4)
+    time.sleep(1.0)
+    # Click "Click here to logout" button
+    click_at(GAME_VIEWPORT["left"] + 645, GAME_VIEWPORT["top"] + 430, variation=10)
+    time.sleep(5.0)
+    
+    attempts = 0
+    max_attempts = 6
+    
+    while attempts < max_attempts and is_running:
+        print(f"    [*] Maintenance sleep ({attempts+1}/{max_attempts}): Waiting 10 minutes...")
+        # Sleep 10 minutes in chunks to respect stop_bot
+        for _ in range(60):
+            if not is_running:
+                return
+            time.sleep(10)
+            
+        print("    [*] Waking up and attempting to log back in...")
+        img = capture_region(GAME_VIEWPORT)
+        action, coords = detect_screen_action(img)
+        
+        if action in ["LOGIN_BUTTON", "WELCOME_PLAY", "DISCONNECT_RETRY"]:
+            click_at(GAME_VIEWPORT["left"] + coords[0], GAME_VIEWPORT["top"] + coords[1], variation=5)
+            time.sleep(15) 
+            
+            img2 = capture_region(GAME_VIEWPORT)
+            action2, coords2 = detect_screen_action(img2)
+            if action2 == "WELCOME_PLAY":
+                click_at(GAME_VIEWPORT["left"] + coords2[0], GAME_VIEWPORT["top"] + coords2[1], variation=5)
+                time.sleep(10)
+                
+            img3 = capture_region(GAME_VIEWPORT)
+            # Check if HP orb is present (meaning we are in game)
+            hsv = cv2.cvtColor(img3, cv2.COLOR_BGR2HSV)
+            red_mask = cv2.inRange(hsv, np.array([0, 150, 100]), np.array([10, 255, 255]))
+            if cv2.countNonZero(red_mask[20:70, 520:570]) > 50:
+                print("    [+] Successfully logged back in! Resuming bot...")
+                # Recalibrate just in case
+                calibrate_window()
+                return 
+            else:
+                print("    [!] Login failed (Server likely still offline).")
+        else:
+            # Maybe already in game? Check HP orb
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            red_mask = cv2.inRange(hsv, np.array([0, 150, 100]), np.array([10, 255, 255]))
+            if cv2.countNonZero(red_mask[20:70, 520:570]) > 50:
+                print("    [+] We are already in-game! Resuming bot...")
+                return
+                
+        attempts += 1
+        
+    print("[ERROR] Maintenance lasted longer than 1 hour. Shutting down bot.")
+    stop_bot()
+
 def is_crasher_present():
     """
     Scans the 3D game world for a Red tile (Player indicator), avoiding health bars.
@@ -1291,6 +1401,17 @@ def main():
             current_time  = time.time()
             elapsed       = current_time - start_time
             since_reset   = current_time - last_aggro_reset
+            
+            # ── System Update Check ────────────────────────────────────────────────
+            if loop_count % 10 == 0:
+                update_mins = get_system_update_timer()
+                if update_mins is not None and update_mins <= 5:
+                    handle_maintenance()
+                    if not is_running:
+                        break
+                    # Reset timers after coming back online
+                    last_aggro_reset = time.time()
+                    last_alignment_check = time.time()
 
             # ── Hard runtime ceiling ──────────────────────────────────────────────
             if elapsed > RUN_TIME_LIMIT_HOURS * 3600:
