@@ -58,14 +58,17 @@ class OSRSBotGUI(ctk.CTk):
         self.script_label = ctk.CTkLabel(self.sidebar, text="Select Script:", text_color=FG_TAN)
         self.script_label.grid(row=2, column=0, padx=20, pady=(10, 0), sticky="w")
         
-        # Discover executable bot scripts (exclude internal patch and test scripts)
+        # Discover executable bot scripts in the 'scripts' folder
+        script_dir = "scripts"
+        os.makedirs(script_dir, exist_ok=True)
+        
         discovered = [
-            f for f in glob.glob("*bot.py") + glob.glob("run_*.py")
-            if not f.startswith(("patch_", "test_", "crop_", "find_", "verify_", "inject_", "ascii_"))
+            os.path.basename(f) for f in glob.glob(os.path.join(script_dir, "*bot.py")) + glob.glob(os.path.join(script_dir, "run_*.py"))
+            if not os.path.basename(f).startswith(("patch_", "test_", "crop_", "find_", "verify_", "inject_", "ascii_"))
         ]
         script_files = sorted(list(set(discovered)))
         if not script_files:
-            script_files = ["smart_sand_crab_bot.py"]
+            script_files = ["No scripts found"]
             
         self.script_var = ctk.StringVar(value=script_files[0])
         self.script_menu = ctk.CTkOptionMenu(self.sidebar, variable=self.script_var, values=script_files, fg_color="#443322", button_color=ACCENT_GOLD, button_hover_color="#b58d33")
@@ -291,7 +294,14 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
             python_exe = "python"  # Fallback to system python if GUI is compiled
             
         # Build command args
-        cmd = [python_exe, "-u", script_file, "--fast"]
+        script_path = os.path.join("scripts", script_file) if script_file != "No scripts found" else ""
+        if not script_path or not os.path.exists(script_path):
+            self.log("[ERROR] Selected script not found!")
+            self.start_btn.configure(state="normal")
+            self.stop_btn.configure(state="disabled")
+            return
+            
+        cmd = [python_exe, "-u", script_path, "--fast"]
         if not self.food_var.get():
             cmd.append("--no-food")
         if not self.pot_var.get():
@@ -309,13 +319,18 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         cmd.extend(["--hotkey-force", self.hk_force.get()])
         
         try:
+            # Set PYTHONPATH so scripts inside scripts/ can import vision.py in the root directory
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.path.abspath(os.path.dirname(__file__))
+            
             self.bot_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                env=env
             )
             
             # Start thread to read output
