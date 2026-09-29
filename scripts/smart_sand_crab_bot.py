@@ -1314,7 +1314,6 @@ def check_home_alignment():
     
     if m_centers:
         def dist_to_mc(p):
-            import math
             return math.hypot(p[0] - mc_x, p[1] - mc_y)
             
         closest_m = min(m_centers, key=dist_to_mc)
@@ -1323,7 +1322,6 @@ def check_home_alignment():
         if dist > tolerance:
             print(f"    [*] Alignment Check: Off-center by {dist:.1f}px (Limit {tolerance}). Correcting...")
             click_at(closest_m[0] + offset_x, closest_m[1] + offset_y, variation=4)
-            import time, random
             time.sleep(random.gauss(2.5, 0.5))
             return True
         else:
@@ -1463,7 +1461,6 @@ def main():
                         else:
                             # Not logged out, but we still can't see the game! World Map must be open.
                             print("    [!] Screen is obscured (World Map opened accidentally?). Pressing Esc to close.")
-                            import pyautogui, time
                             pyautogui.press('esc')
                             time.sleep(1.5)
                             main.obscured_ticks = 0
