@@ -1289,55 +1289,47 @@ def is_crasher_present():
 def check_home_alignment():
     """
     Periodic self-correction: Checks if the player is perfectly centered on the Active Home tile.
-    Because the player is always at the dead-center of the minimap (or 3D view), 
-    the active ground marker should be mathematically centered on the screen.
-    If it's more than a few pixels off, we walk to correct it.
+    ALWAYS uses the 3D game viewport instead of the minimap, because the minimap tile marker 
+    gets completely occluded by the white player dot and yellow NPC dots when surrounded by crabs.
     """
     global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME
-
-    if WORLD_CLICK_NAV:
-        offset_x = GAME_VIEWPORT["left"]
-        offset_y = GAME_VIEWPORT["top"]
-        mc_x     = GAME_VIEWPORT["width"]  // 2
-        mc_y     = GAME_VIEWPORT["height"] // 2
-        region   = GAME_VIEWPORT
-        min_a    = 50
-        max_a    = None
-        tolerance = 15  # Pixels tolerance for 3D world view (tiles are larger)
-    else:
-        offset_x = MINIMAP_REGION["left"]
-        offset_y = MINIMAP_REGION["top"]
-        mc_x     = 78  # Exact center of minimap circle relative to region (643 - 565)
-        mc_y     = 75  # Exact center of minimap circle relative to region (84 - 9)
-        region   = MINIMAP_REGION
-        min_a    = 2
-        max_a    = 350
-        tolerance = 2.5 # Pixels tolerance for Minimap (tiles are tiny, 2.5px is ~1/2 tile)
-
+    
+    offset_x = GAME_VIEWPORT["left"]
+    offset_y = GAME_VIEWPORT["top"]
+    
+    # The player is always mathematically centered in the 3D viewport
+    mc_x = GAME_VIEWPORT["width"]  // 2
+    mc_y = GAME_VIEWPORT["height"] // 2
+    region = GAME_VIEWPORT
+    
+    # Ground markers in 3D view are large polygons. 
+    min_a = 50
+    max_a = None
+    tolerance = 25  # 25 pixels is just under 1 tile width in 3D view
+    
     img = capture_region(region)
-    if not WORLD_CLICK_NAV:
-        mc_x, mc_y = get_minimap_center(img, mc_x, mc_y)
-
     m_centers = find_color_centers(img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=min_a, max_area=max_a)
-
+    
     if m_centers:
         def dist_to_mc(p):
+            import math
             return math.hypot(p[0] - mc_x, p[1] - mc_y)
-
+            
         closest_m = min(m_centers, key=dist_to_mc)
         dist = dist_to_mc(closest_m)
-
-        # If the closest magenta marker is further than the tolerance, we are off the tile!
+        
         if dist > tolerance:
             print(f"    [*] Alignment Check: Off-center by {dist:.1f}px (Limit {tolerance}). Correcting...")
-            click_at(closest_m[0] + offset_x, closest_m[1] + offset_y, variation=2)
+            click_at(closest_m[0] + offset_x, closest_m[1] + offset_y, variation=4)
+            import time, random
             time.sleep(random.gauss(2.5, 0.5))
             return True
         else:
             print(f"    [*] Alignment Check: Perfectly centered. (Offset: {dist:.1f}px)")
+            return False
     else:
-        print("    [!] Alignment Check: No Magenta marker found near player!")
-    return False
+        print(f"    [!] Alignment Check: No {ACTIVE_HOME_NAME} marker found near player in 3D view!")
+        return False
 
 
 # =============================================================================
