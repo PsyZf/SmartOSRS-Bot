@@ -608,22 +608,7 @@ def handle_reconnect():
         "height": 503
     }
     
-    # Wait up to 10 seconds for the screen to fade in from black and show login/welcome UI
-    start_time = time.time()
-    detected_action = None
-    while time.time() - start_time < 10:
-        img = capture_region(canvas_region)
-        action, coords = detect_screen_action(img)
-        if action is not None:
-            detected_action = action
-            break
-        time.sleep(1.0)
-        
-    if detected_action is None:
-        # No disconnect or title screen is active after waiting - might be world map
-        return False
-
-    print(f"\n    [!] Disconnect/Title state detected ({detected_action}). Starting recovery loop...")
+    print("\n    [!] Disconnect state assumed. Starting 120s recovery loop...")
     logger.log_event("DISCONNECT_START")
     
     # Reset start time for the 120s loop
@@ -664,8 +649,13 @@ def handle_reconnect():
             time.sleep(random.gauss(5.0, 0.5))
             continue
             
-        # If no recognized screen action, wait peacefully instead of clicking random pixels
+        # Blind fallback: If CV fails, explicitly click standard Login and Welcome coords
+        print("    [*] Blind fallback: Clicking Login and Welcome screen coordinates...")
+        click_at(canvas_region["left"] + 382, canvas_region["top"] + 310, variation=10) # Login Button
         time.sleep(2.0)
+        click_at(canvas_region["left"] + 382, canvas_region["top"] + 370, variation=10) # Welcome Button
+        pyautogui.press('space')
+        time.sleep(4.0)
 
     print("    [-] Recovery loop timed out. Could not reconnect.")
     logger.log_event("DISCONNECT_TIMEOUT")
@@ -1469,25 +1459,18 @@ def main():
                 
                 # Handle Disconnects or Obscuring Interfaces (like accidentally opening the World Map)
                 if not is_in_game():
-                    obscured_ticks = getattr(main, 'obscured_ticks', 0) + 1
-                    main.obscured_ticks = obscured_ticks
+                    print("    [!] Game screen hidden (HP/Run orb missing).")
+                    print("    [!] Pressing ESC to clear potential interfaces (e.g., World Map)...")
+                    pyautogui.press('esc')
+                    time.sleep(2.0)
                     
-                    # If screen is hidden for ~10 seconds
-                    if obscured_ticks > 4:
-                        if handle_reconnect():
-                            # It was a disconnect and we logged back in
-                            last_combat_time = time.time()
-                            main.obscured_ticks = 0
-                            continue
-                        else:
-                            # Not logged out, but we still can't see the game! World Map must be open.
-                            print("    [!] Screen is obscured (World Map opened accidentally?). Pressing Esc to close.")
-                            pyautogui.press('esc')
-                            time.sleep(1.5)
-                            main.obscured_ticks = 0
-                            continue
-                else:
-                    main.obscured_ticks = 0
+                    if not is_in_game():
+                        print("    [!] Still not in game. Assuming Disconnected/Logged out.")
+                        handle_reconnect()
+                        last_combat_time = time.time()
+                        
+                    # NEVER proceed to aggro reset if we are not in game
+                    continue
 
                 # Out of combat periodic status notification
                 if 25 <= time_out_of_combat < 60 and loop_count % 8 == 0:
