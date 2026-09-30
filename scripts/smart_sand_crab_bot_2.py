@@ -559,15 +559,66 @@ def is_in_game():
     Checks if the player is actively logged in to the game world.
     Checks the HP orb for health/numbers, the Run orb, and ensures the title screen is absent.
     """
+    # 1. Fast explicit check to disqualify the login/welcome screen (flames can fake HP/Run orbs)
+    canvas_region = {
+        "left": int(CLIENT_OFFSET_X),
+        "top": int(CLIENT_OFFSET_Y),
+        "width": 765,
+        "height": 503
+    }
+    img_canvas = capture_region(canvas_region)
+    if img_canvas is not None:
+        hsv_canvas = cv2.cvtColor(img_canvas, cv2.COLOR_BGR2HSV)
+        center_roi = hsv_canvas[200:420, 220:545]
+        
+        # Red Welcome Screen Button check
+        r1 = cv2.inRange(center_roi, (0, 90, 60), (10, 255, 255))
+        r2 = cv2.inRange(center_roi, (170, 90, 60), (180, 255, 255))
+        red_mask = cv2.bitwise_or(r1, r2)
+        red_contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in red_contours:
+            _, _, bw, bh = cv2.boundingRect(c)
+            if bw >= 140 and bh >= 25 and cv2.contourArea(c) > 2500:
+                return False  # Definitively the Welcome screen!
+                
+        # Gold/Yellow Login Screen Buttons check
+        gold_mask = cv2.inRange(center_roi, (10, 100, 100), (35, 255, 255))
+        gold_contours, _ = cv2.findContours(gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in gold_contours:
+            _, _, bw, bh = cv2.boundingRect(c)
+            if bw >= 100 and bh >= 25 and cv2.contourArea(c) > 1500:
+                return False  # Definitively the Login screen!
+
+    # 2. Proceed with normal HP/Run orb checks
     orb_region = {
-        "left": 546 + CLIENT_OFFSET_X, 
-        "top": 42 + CLIENT_OFFSET_Y, 
-        "width": 26, 
+        "left": 546 + int(CLIENT_OFFSET_X),
+        "top": 42 + int(CLIENT_OFFSET_Y),
+        "width": 26,
         "height": 26
     }
     img = capture_region(orb_region)
-    if img is None:
-        return False
+    if img is not None:
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        r1 = cv2.inRange(hsv, (0, 60, 50), (12, 255, 255))
+        r2 = cv2.inRange(hsv, (168, 60, 50), (180, 255, 255))
+        hp_red = cv2.countNonZero(r1) + cv2.countNonZero(r2)
+        if hp_red >= 5:
+            return True
+
+    run_region = {
+        "left": 546 + int(CLIENT_OFFSET_X),
+        "top": 122 + int(CLIENT_OFFSET_Y),
+        "width": 26,
+        "height": 26
+    }
+    img_run = capture_region(run_region)
+    if img_run is not None:
+        hsv_run = cv2.cvtColor(img_run, cv2.COLOR_BGR2HSV)
+        run_yellow = cv2.countNonZero(cv2.inRange(hsv_run, (15, 60, 60), (38, 255, 255)))
+        if run_yellow >= 25:
+            return True
+
+    return False
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     r1 = cv2.inRange(hsv, (0, 60, 50), (12, 255, 255))
     r2 = cv2.inRange(hsv, (168, 60, 50), (180, 255, 255))
