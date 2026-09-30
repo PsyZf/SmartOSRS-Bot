@@ -133,7 +133,7 @@ last_antiban_time = 0
 MARKER_GREEN_LOW  = (45, 100, 100)
 MARKER_GREEN_HIGH = (75, 255, 255)
 
-MARKER_MAGENTA_LOW  = (140, 215, 149)
+MARKER_MAGENTA_LOW  = (140, 100, 100)
 MARKER_MAGENTA_HIGH = (160, 255, 255)
 
 ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
@@ -676,7 +676,7 @@ def recover_path():
     pyautogui.press('esc')
     time.sleep(0.5)
 
-    MARKER_MAGENTA_LOW  = (140, 215, 149)
+    MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (160, 255, 255)
     MARKER_CYAN_LOW     = (80, 100, 100)
     MARKER_CYAN_HIGH    = (100, 255, 255)
@@ -790,7 +790,7 @@ def reset_aggro():
     Route:
       Home (Magenta) -> Mid (Cyan, if visible) -> Far (Blue) -> Mid (Cyan, if visible) -> Home (Magenta)
     """
-    MARKER_MAGENTA_LOW  = (140, 215, 149)
+    MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (160, 255, 255)
     
     MARKER_CYAN_LOW     = (80, 100, 100)
