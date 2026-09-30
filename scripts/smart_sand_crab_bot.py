@@ -1331,10 +1331,9 @@ def is_crasher_present():
 
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    # 1. Get Crasher Blobs (EA7B5B)
-    mask1 = cv2.inRange(hsv, (0, 100, 100), (12, 255, 255))
-    mask2 = cv2.inRange(hsv, (175, 100, 100), (180, 255, 255))
-    red_mask = cv2.bitwise_or(mask1, mask2)
+    # 1. Get Crasher Blobs (EA7B5B ONLY)
+    # Strictly bound to Hue 5-18 to COMPLETELY IGNORE standard OSRS true-red Hitsplats and Health bars (Hue 0-4 and 175-180)
+    red_mask = cv2.inRange(hsv, (5, 100, 100), (18, 255, 255))
     
     kernel = np.ones((5,5), np.uint8)
     red_mask = cv2.dilate(red_mask, kernel, iterations=1)
