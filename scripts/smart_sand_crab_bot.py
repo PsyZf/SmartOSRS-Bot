@@ -1314,10 +1314,8 @@ def handle_maintenance():
 def is_crasher_present():
     """
     Scans the 3D game world for a Red tile (Player indicator), avoiding health bars.
-    If a large Red square/polygon is found, another player is standing on our tile or nearby.
+    Returns a set of locations where crashers were found: e.g. {"MAGENTA", "YELLOW", "CENTER"}.
     """
-    # The actual 3D game viewport in Fixed Mode is strictly 512x334 (top-left).
-    # This completely excludes the minimap, inventory, and chatbox.
     view_3d = {
         "left": GAME_VIEWPORT["left"],
         "top": GAME_VIEWPORT["top"],
@@ -1326,7 +1324,61 @@ def is_crasher_present():
     }
     img = capture_region(view_3d)
     if img is None:
-        return False
+        return set()
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # 1. Get Crasher Blobs (EA7B5B)
+    mask1 = cv2.inRange(hsv, (0, 100, 100), (20, 255, 255))
+    mask2 = cv2.inRange(hsv, (165, 100, 100), (180, 255, 255))
+    red_mask = cv2.bitwise_or(mask1, mask2)
+    
+    kernel = np.ones((5,5), np.uint8)
+    red_mask = cv2.dilate(red_mask, kernel, iterations=1)
+    red_mask = cv2.erode(red_mask, kernel, iterations=1)
+
+    crasher_blobs = []
+    contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        effective_area = w * h
+        if effective_area > 150:
+            ratio = w / float(h)
+            if 0.2 < ratio < 5.0:
+                cx = x + (w / 2)
+                cy = y + (h / 2)
+                crasher_blobs.append((cx, cy))
+                
+    if not crasher_blobs:
+        return set()
+        
+    # 2. Get Magenta (Home) and Yellow (Backup) blobs
+    magenta_centers = find_color_centers(img, MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH, min_area=20, dilate_iters=1)
+    yellow_centers = find_color_centers(img, MARKER_YELLOW_LOW, MARKER_YELLOW_HIGH, min_area=20, dilate_iters=1)
+    
+    crasher_locations = set()
+    for cx, cy in crasher_blobs:
+        found_on_marker = False
+        
+        # Check if crasher is standing on Magenta tile
+        for mx, my in magenta_centers:
+            if math.hypot(cx - mx, cy - my) < 40:
+                crasher_locations.add("MAGENTA")
+                found_on_marker = True
+                break
+                
+        # Check if crasher is standing on Yellow tile
+        for yx, yy in yellow_centers:
+            if math.hypot(cx - yx, cy - yy) < 40:
+                crasher_locations.add("YELLOW")
+                found_on_marker = True
+                break
+                
+        # If crasher isn't directly on a visible marker, but is at the center of the screen (on top of us)
+        if not found_on_marker and abs(cx - 256) < 40 and abs(cy - 167) < 40:
+            crasher_locations.add("CENTER")
+            
+    return crasher_locations
     
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
