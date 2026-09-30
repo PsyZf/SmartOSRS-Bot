@@ -599,10 +599,16 @@ def is_in_game():
     img = capture_region(orb_region)
     if img is not None:
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        # Red (Normal Heart)
         r1 = cv2.inRange(hsv, (0, 60, 50), (12, 255, 255))
         r2 = cv2.inRange(hsv, (168, 60, 50), (180, 255, 255))
-        hp_red = cv2.countNonZero(r1) + cv2.countNonZero(r2)
-        if hp_red >= 5:
+        # Green (Poisoned Heart)
+        g = cv2.inRange(hsv, (45, 60, 50), (75, 255, 255))
+        # Yellow (Diseased/Venomed Heart)
+        y = cv2.inRange(hsv, (15, 60, 50), (40, 255, 255))
+        
+        hp_valid_pixels = cv2.countNonZero(r1) + cv2.countNonZero(r2) + cv2.countNonZero(g) + cv2.countNonZero(y)
+        if hp_valid_pixels >= 5:
             return True
 
     run_region = {
