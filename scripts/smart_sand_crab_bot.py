@@ -500,7 +500,7 @@ def capture_screen():
     screenshot = np.array(sct_engine.grab(monitor))
     return cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
 
-def find_color_centers(image, lower_hsv, upper_hsv, min_area=2, max_area=None):
+def find_color_centers(image, lower_hsv, upper_hsv, min_area=2, max_area=None, dilate_iters=0):
     """
     Finds all blobs of a target HSV color range in image.
     Supports min_area and max_area filtering.
@@ -510,9 +510,10 @@ def find_color_centers(image, lower_hsv, upper_hsv, min_area=2, max_area=None):
     mask     = cv2.inRange(hsv, np.array(lower_hsv), np.array(upper_hsv))
     
     # Apply morphological close to fuse broken 1px outlines into a single bounding box
-    kernel = np.ones((5,5), np.uint8)
-    mask = cv2.dilate(mask, kernel, iterations=1)
-    mask = cv2.erode(mask, kernel, iterations=1)
+    if dilate_iters > 0:
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.dilate(mask, kernel, iterations=dilate_iters)
+        mask = cv2.erode(mask, kernel, iterations=dilate_iters)
     
     contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -1568,37 +1569,52 @@ def main():
 
             # ── Crasher Protection (Red Tile Detection) ───────────────────────────
             global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time
-            if is_crasher_present():
-                last_crasher_time = current_time
+            crasher_locs = is_crasher_present()
+            
+            if crasher_locs:
                 if ACTIVE_HOME_NAME == "Magenta (Home)":
-                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to Yellow (Backup) tile...")
-                    ACTIVE_HOME_LOW  = MARKER_YELLOW_LOW
-                    ACTIVE_HOME_HIGH = MARKER_YELLOW_HIGH
-                    ACTIVE_HOME_NAME = "Yellow (Backup)"
-                    
-                    print("    [*] Enforcing immediate movement to Yellow (Backup)...")
-                    for _ in range(3):
-                        needs_correction = check_home_alignment()
-                        if not needs_correction:
-                            print("    [+] Successfully confirmed arrival at Yellow (Backup) tile.")
-                            break
-                        time.sleep(3.5)
+                    if "MAGENTA" in crasher_locs or "CENTER" in crasher_locs:
+                        last_crasher_time = current_time
+                        if "YELLOW" not in crasher_locs:
+                            print("\n[!] CRASHER DETECTED on Magenta! Retreating to Yellow (Backup)...")
+                            ACTIVE_HOME_LOW  = MARKER_YELLOW_LOW
+                            ACTIVE_HOME_HIGH = MARKER_YELLOW_HIGH
+                            ACTIVE_HOME_NAME = "Yellow (Backup)"
+                            for _ in range(3):
+                                if not check_home_alignment():
+                                    print("    [+] Confirmed arrival at Yellow (Backup).")
+                                    break
+                                time.sleep(3.5)
+                        else:
+                            print("\n[!] CRASHERS DETECTED ON BOTH MAGENTA AND YELLOW! Staying put for now...")
+                            
+                elif ACTIVE_HOME_NAME == "Yellow (Backup)":
+                    if "MAGENTA" in crasher_locs:
+                        # Someone is still standing on our primary home. Keep the timer fresh so we don't return.
+                        last_crasher_time = current_time
+                        
+                    if "YELLOW" in crasher_locs or "CENTER" in crasher_locs:
+                        last_crasher_time = current_time
+                        print("\n[!] CRASHER DETECTED on Yellow Backup! Retreating back to Magenta...")
+                        ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
+                        ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
+                        ACTIVE_HOME_NAME = "Magenta (Home)"
+                        for _ in range(3):
+                            if not check_home_alignment():
+                                print("    [+] Confirmed arrival at Magenta (Home).")
+                                break
+                            time.sleep(3.5)
             else:
                 if ACTIVE_HOME_NAME == "Yellow (Backup)" and (current_time - last_crasher_time > 90):
-                    print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
+                    print("\n[+] Primary spot (Magenta) clear for 90s! Returning to Magenta (Home)...")
                     ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                     ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
                     ACTIVE_HOME_NAME = "Magenta (Home)"
-                    
-                    print("    [*] Enforcing immediate movement back to Magenta (Home)...")
                     for _ in range(3):
-                        needs_correction = check_home_alignment()
-                        if not needs_correction:
-                            print("    [+] Successfully confirmed arrival at Magenta (Home) tile.")
+                        if not check_home_alignment():
+                            print("    [+] Confirmed arrival at Magenta (Home).")
                             break
                         time.sleep(3.5)
-
-            # ── Periodic alignment check ──────────────────────────────────────────
             # Check every 2-4 minutes (instead of every 60 seconds) to look more human
             if current_time - last_alignment_check > random.randint(120, 240):
                 if since_reset > 15 and since_reset < RESET_TIME - 15:
