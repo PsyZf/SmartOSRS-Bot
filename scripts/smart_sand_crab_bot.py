@@ -130,11 +130,11 @@ last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
 last_antiban_time = 0
 
-MARKER_YELLOW_LOW  = (20, 100, 100)
+MARKER_YELLOW_LOW  = (22, 100, 100)
 MARKER_YELLOW_HIGH = (35, 255, 255)
 
 MARKER_MAGENTA_LOW  = (140, 100, 100)
-MARKER_MAGENTA_HIGH = (160, 255, 255)
+MARKER_MAGENTA_HIGH = (155, 255, 255)
 
 ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
 ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
@@ -744,7 +744,7 @@ def recover_path():
     time.sleep(0.5)
 
     MARKER_MAGENTA_LOW  = (140, 100, 100)
-    MARKER_MAGENTA_HIGH = (160, 255, 255)
+    MARKER_MAGENTA_HIGH = (155, 255, 255)
     MARKER_CYAN_LOW     = (80, 100, 100)
     MARKER_CYAN_HIGH    = (100, 255, 255)
     MARKER_BLACK_LOW    = (0, 0, 0)
@@ -858,7 +858,7 @@ def reset_aggro():
       Home (Magenta) -> Mid (Cyan, if visible) -> Far (Blue) -> Mid (Cyan, if visible) -> Home (Magenta)
     """
     MARKER_MAGENTA_LOW  = (140, 100, 100)
-    MARKER_MAGENTA_HIGH = (160, 255, 255)
+    MARKER_MAGENTA_HIGH = (155, 255, 255)
     
     MARKER_CYAN_LOW     = (80, 100, 100)
     MARKER_CYAN_HIGH    = (100, 255, 255)
@@ -1332,8 +1332,8 @@ def is_crasher_present():
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     # 1. Get Crasher Blobs (EA7B5B)
-    mask1 = cv2.inRange(hsv, (0, 100, 100), (20, 255, 255))
-    mask2 = cv2.inRange(hsv, (165, 100, 100), (180, 255, 255))
+    mask1 = cv2.inRange(hsv, (0, 100, 100), (12, 255, 255))
+    mask2 = cv2.inRange(hsv, (175, 100, 100), (180, 255, 255))
     red_mask = cv2.bitwise_or(mask1, mask2)
     
     kernel = np.ones((5,5), np.uint8)
@@ -1386,8 +1386,8 @@ def is_crasher_present():
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
     # Red wraps around HSV 0 and 180. Widened to catch EA7B5B (orange-red) and alpha blending.
-    mask1 = cv2.inRange(hsv, (0, 100, 100), (20, 255, 255))
-    mask2 = cv2.inRange(hsv, (165, 100, 100), (180, 255, 255))
+    mask1 = cv2.inRange(hsv, (0, 100, 100), (12, 255, 255))
+    mask2 = cv2.inRange(hsv, (175, 100, 100), (180, 255, 255))
     red_mask = cv2.bitwise_or(mask1, mask2)
     
     # Morphological close to fuse broken crasher tile outlines
