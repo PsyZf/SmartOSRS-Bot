@@ -16,8 +16,8 @@ import threading
 
 MARKER_CYAN_LOW    = (80, 100, 100)
 MARKER_CYAN_HIGH   = (100, 255, 255)
-MARKER_BLUE_LOW    = (110, 100, 100)
-MARKER_BLUE_HIGH   = (130, 255, 255)
+MARKER_GREEN_LOW    = (45, 100, 100)
+MARKER_GREEN_HIGH   = (75, 255, 255)
 MARKER_MAGENTA_LOW = (140, 100, 100)
 MARKER_MAGENTA_HIGH= (160, 255, 255)
 
@@ -87,7 +87,7 @@ def reset_aggro():
     # 2. Click Blue
     print("    [*] Looking for Blue marker on Minimap...")
     img = capture_region(MINIMAP_REGION)
-    centers = find_color_centers(img, MARKER_BLUE_LOW, MARKER_BLUE_HIGH)
+    centers = find_color_centers(img, MARKER_GREEN_LOW, MARKER_GREEN_HIGH)
     if centers:
         cx, cy = centers[0]
         click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)

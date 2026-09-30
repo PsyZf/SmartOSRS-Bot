@@ -130,8 +130,8 @@ last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
 last_antiban_time = 0
 
-MARKER_GREEN_LOW  = (45, 100, 100)
-MARKER_GREEN_HIGH = (75, 255, 255)
+MARKER_YELLOW_LOW  = (20, 100, 100)
+MARKER_YELLOW_HIGH = (35, 255, 255)
 
 MARKER_MAGENTA_LOW  = (140, 100, 100)
 MARKER_MAGENTA_HIGH = (160, 255, 255)
@@ -853,8 +853,8 @@ def reset_aggro():
     MARKER_CYAN_LOW     = (80, 100, 100)
     MARKER_CYAN_HIGH    = (100, 255, 255)
 
-    MARKER_BLUE_LOW     = (110, 100, 100)
-    MARKER_BLUE_HIGH    = (130, 255, 255)
+    MARKER_GREEN_LOW     = (45, 100, 100)
+    MARKER_GREEN_HIGH    = (75, 255, 255)
 
     print("\n[*] Initiating Sand Crab aggression reset route...")
 
@@ -925,13 +925,13 @@ def reset_aggro():
     else:
         print("    [-] No Cyan (Mid) marker detected. Initiating 2-point route...")
 
-    # Step 2: Walk to Blue (Far)
-    far_coord = poll_marker(MARKER_BLUE_LOW, MARKER_BLUE_HIGH, "Blue (Far)")
+    # Step 2: Walk to Green (Far)
+    far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
     if far_coord:
-        walk_to_target(far_coord, "Blue (Far)")
+        walk_to_target(far_coord, "Green (Far)")
         time.sleep(random.gauss(2.0, 0.5))  # Brief pause at Far point to ensure aggro boundary reset
     else:
-        print("    [!] Critical Error: Blue (Far) marker not found. Cannot reset aggro properly.")
+        print("    [!] Critical Error: Green (Far) marker not found. Cannot reset aggro properly.")
         recover_path()
         return
 
@@ -1560,20 +1560,20 @@ def main():
             if is_crasher_present():
                 last_crasher_time = current_time
                 if ACTIVE_HOME_NAME == "Magenta (Home)":
-                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to Green (Backup) tile...")
-                    ACTIVE_HOME_LOW  = MARKER_GREEN_LOW
-                    ACTIVE_HOME_HIGH = MARKER_GREEN_HIGH
-                    ACTIVE_HOME_NAME = "Green (Backup)"
+                    print("\n[!] CRASHER DETECTED (Red Tile)! Retreating to Yellow (Backup) tile...")
+                    ACTIVE_HOME_LOW  = MARKER_YELLOW_LOW
+                    ACTIVE_HOME_HIGH = MARKER_YELLOW_HIGH
+                    ACTIVE_HOME_NAME = "Yellow (Backup)"
                     
-                    print("    [*] Enforcing immediate movement to Green (Backup)...")
+                    print("    [*] Enforcing immediate movement to Yellow (Backup)...")
                     for _ in range(3):
                         needs_correction = check_home_alignment()
                         if not needs_correction:
-                            print("    [+] Successfully confirmed arrival at Green (Backup) tile.")
+                            print("    [+] Successfully confirmed arrival at Yellow (Backup) tile.")
                             break
                         time.sleep(3.5)
             else:
-                if ACTIVE_HOME_NAME == "Green (Backup)" and (current_time - last_crasher_time > 90):
+                if ACTIVE_HOME_NAME == "Yellow (Backup)" and (current_time - last_crasher_time > 90):
                     print("\n[+] Spot clear for 90s! Returning to primary Magenta (Home) tile...")
                     ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                     ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
