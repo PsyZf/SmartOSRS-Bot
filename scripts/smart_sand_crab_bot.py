@@ -566,6 +566,9 @@ def is_in_game():
     Checks if the player is actively logged in to the game world.
     Checks the HP orb for health/numbers, the Run orb, and ensures the title screen is absent.
     """
+    # [USER OVERRIDE]: Bypassing game screen detection to prevent layout false-positives
+    return True
+    
     # 1. Fast explicit check to disqualify the login/welcome screen (flames can fake HP/Run orbs)
     canvas_region = {
         "left": int(CLIENT_OFFSET_X),
