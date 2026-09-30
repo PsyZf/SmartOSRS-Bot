@@ -68,12 +68,11 @@ def detect_screen_action(image_cv2):
             combined = " ".join(all_text_list)
 
             # 1. Welcome Screen ("Welcome to RuneScape" / "Click here to play" / "Play Now")
+            # Stricter welcome screen checks to avoid reading the chatbox ("Welcome to Old School RuneScape.")
             is_welcome = (
-                "welcome to runescape" in combined or
-                "welcome to" in combined or
                 "click here to play" in combined or
                 "click to play" in combined or
-                ("school" in combined and "world" in combined)
+                ("school" in combined and "world" in combined and "play" in combined)
             )
             if is_welcome:
                 # Big red 'Click here to play' button is always dead center near the bottom
