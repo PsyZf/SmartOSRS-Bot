@@ -1080,14 +1080,15 @@ def setup_camera():
     print("[Setup] -> Zooming out fully...")
     human_mouse_move(*VIEWPORT_CENTER)
     gaussian_sleep(200, 60)
-    # 20 scroll-down clicks is enough to hit the zoom floor from any position.
+    # Windows scroll ticks require higher integer values (-120 per notch standard).
+    # Sending -500 per tick ensures it triggers heavily in RuneLite.
     # We break it into two bursts of 10 with a tiny pause to seem more natural.
     for _ in range(10):
-        pyautogui.scroll(-3)   # negative = scroll down = zoom out in OSRS
+        pyautogui.scroll(-500)   # negative = scroll down = zoom out in OSRS
         time.sleep(random.uniform(0.04, 0.09))
     gaussian_sleep(300, 80)
     for _ in range(10):
-        pyautogui.scroll(-3)
+        pyautogui.scroll(-500)
         time.sleep(random.uniform(0.04, 0.09))
     gaussian_sleep(400, 100)
 
