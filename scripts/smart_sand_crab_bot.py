@@ -1454,7 +1454,7 @@ def main():
                         os.replace("latest_frame_tmp.jpg", "latest_frame.jpg")
             except Exception:
                 pass
-            time.sleep(1.0)
+            old_sleep(1.0)
 
     # Launch live streaming daemon thread
     threading.Thread(target=_stream_preview_loop, daemon=True).start()
