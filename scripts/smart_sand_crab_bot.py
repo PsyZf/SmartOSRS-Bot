@@ -508,6 +508,12 @@ def find_color_centers(image, lower_hsv, upper_hsv, min_area=2, max_area=None):
     """
     hsv      = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask     = cv2.inRange(hsv, np.array(lower_hsv), np.array(upper_hsv))
+    
+    # Apply morphological close to fuse broken 1px outlines into a single bounding box
+    kernel = np.ones((5,5), np.uint8)
+    mask = cv2.dilate(mask, kernel, iterations=1)
+    mask = cv2.erode(mask, kernel, iterations=1)
+    
     contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     blobs = []
@@ -1323,25 +1329,30 @@ def is_crasher_present():
     
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
-    # Red wraps around HSV 0 and 180
-    mask1 = cv2.inRange(hsv, (0, 150, 150), (10, 255, 255))
-    mask2 = cv2.inRange(hsv, (170, 150, 150), (180, 255, 255))
+    # Red wraps around HSV 0 and 180. Widened to catch EA7B5B (orange-red) and alpha blending.
+    mask1 = cv2.inRange(hsv, (0, 100, 100), (20, 255, 255))
+    mask2 = cv2.inRange(hsv, (165, 100, 100), (180, 255, 255))
     red_mask = cv2.bitwise_or(mask1, mask2)
     
+    # Morphological close to fuse broken crasher tile outlines
+    kernel = np.ones((5,5), np.uint8)
+    red_mask = cv2.dilate(red_mask, kernel, iterations=1)
+    red_mask = cv2.erode(red_mask, kernel, iterations=1)
+
     contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for c in contours:
-        area = cv2.contourArea(c)
-        if area > 180: # Tile markers are large polygons, health bars are small rectangles
-            x, y, w, h = cv2.boundingRect(c)
+        x, y, w, h = cv2.boundingRect(c)
+        # Use bounding box area to capture hollow ground marker outlines perfectly
+        effective_area = w * h
+        if effective_area > 150: # Tile markers are large polygons, health bars are small rectangles
             ratio = w / float(h)
-            if 0.5 < ratio < 4.0: # Exclude extreme long thin lines
-                # Only trigger if the red tile is explicitly overlapping/near our home tile (center of screen)
+            if 0.2 < ratio < 5.0: # Relaxed ratio for players/tiles
+                # Only trigger if the red tile/player is explicitly overlapping/near our home tile
                 # 3D viewport center is (256, 167). One tile is ~40px.
-                # STRICT mode: Only trigger if the red tile is dead-center (exactly on our standing tile).
-                # 15px radius ensures it ONLY triggers if they are sharing our exact tile.
+                # Relaxed from 15px to 40px radius to reliably catch EA7B5B player indicators even if slightly offset.
                 cx = x + (w / 2)
                 cy = y + (h / 2)
-                if abs(cx - 256) < 15 and abs(cy - 167) < 15:
+                if abs(cx - 256) < 40 and abs(cy - 167) < 40:
                     return True
     return False
 
