@@ -53,6 +53,8 @@ class OSRSBotGUI(ctk.CTk):
         self.macro_btn = ctk.CTkButton(btn_frame, text="Macro", fg_color="#332211", hover_color="#443322", text_color="#d6a940", command=self.open_macro)
         self.macro_btn.grid(row=0, column=1, padx=(2,0), sticky="ew")
 
+        self.runelite_btn = ctk.CTkButton(btn_frame, text="Launch RuneLite", fg_color="#1d2630", hover_color="#2c3a4a", text_color="#d6a940", command=self.launch_runelite)
+        self.runelite_btn.grid(row=1, column=0, columnspan=2, pady=(5,0), sticky="ew")
 
         # Script Selection
         self.script_label = ctk.CTkLabel(self.sidebar, text="Select Script:", text_color=FG_TAN)
@@ -179,6 +181,25 @@ class OSRSBotGUI(ctk.CTk):
 
     def open_macro(self):
         MacroRecorderGUI(self)
+        
+    def launch_runelite(self):
+        rl_path = os.path.expandvars(r"%LOCALAPPDATA%\RuneLite\RuneLite.exe")
+        if os.path.exists(rl_path):
+            self.log("[*] Launching RuneLite...")
+            import subprocess
+            subprocess.Popen([rl_path], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS if os.name == 'nt' else 0)
+        else:
+            self.log("[!] RuneLite.exe not found in %LOCALAPPDATA%\\RuneLite\\")
+
+    def append_status(self, message):
+        self.status_log.configure(state="normal")
+        # Keep only the last 30 lines
+        current_text = self.status_log.get("1.0", "end-1c").split("\n")
+        if len(current_text) > 30:
+            self.status_log.delete("1.0", "2.0")
+        self.status_log.insert("end", f"{message}\n")
+        self.status_log.see("end")
+        self.status_log.configure(state="disabled")
 
     def update_screenshot(self):
         is_running = self.bot_process is not None and self.bot_process.poll() is None
@@ -260,6 +281,11 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.textbox.insert("end", msg_str + "\n", tag)
         self.textbox.see("end")
         self.textbox.configure(state="disabled")
+        
+        # Forward key game events to the visual status log
+        status_keywords = ["combat", "crasher", "potion", "reset", "disconnect", "logged", "setup", "home", "marker", "clicking"]
+        if any(kw in low for kw in status_keywords) and not msg_str.startswith("    [DEBUG]"):
+            self.append_status(msg_str.strip())
 
     def start_bot(self):
         if self.bot_process is not None:
