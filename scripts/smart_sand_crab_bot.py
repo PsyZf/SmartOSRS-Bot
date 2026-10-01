@@ -1108,6 +1108,12 @@ def setup_camera():
         time.sleep(random.uniform(0.04, 0.09))
     gaussian_sleep(400, 100)
 
+    print("[Setup] -> Zooming in slightly for better visibility...")
+    for _ in range(8):
+        pyautogui.scroll(500)   # positive = scroll up = zoom in
+        time.sleep(random.uniform(0.04, 0.09))
+    gaussian_sleep(300, 80)
+
     # ── 3. Pitch to top-down: hold Up Arrow ──────────────────────────────────
     # RuneLite Camera plugin must have 'Expand pitch limit' enabled.
     # Standard OSRS pitch limit is ~383; expanded allows full top-down (~512).
