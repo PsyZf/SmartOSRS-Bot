@@ -1333,7 +1333,7 @@ def is_crasher_present():
 
     # 1. Get Crasher Blobs (EA7B5B ONLY)
     # Strictly bound to Hue 5-18 to COMPLETELY IGNORE standard OSRS true-red Hitsplats and Health bars (Hue 0-4 and 175-180)
-    red_mask = cv2.inRange(hsv, (5, 100, 100), (18, 255, 255))
+    red_mask = cv2.inRange(hsv, (5, 120, 200), (12, 255, 255))
     
     kernel = np.ones((5,5), np.uint8)
     red_mask = cv2.dilate(red_mask, kernel, iterations=1)
@@ -1433,7 +1433,7 @@ def check_home_alignment():
     tolerance = 8  # 8 pixels ensures it rigidly snaps to the exact center of the tile
     
     img = capture_region(region)
-    m_centers = find_color_centers(img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=min_a, max_area=max_a)
+    m_centers = find_color_centers(img, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, min_area=20, max_area=max_a, dilate_iters=1)
     
     if m_centers:
         def dist_to_mc(p):
