@@ -1,4 +1,5 @@
 import argparse
+import requests
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -23,6 +24,7 @@ parser.add_argument("--no-pots", action="store_true", help="Disable combat potio
 parser.add_argument("--no-food", action="store_true", help="Disable auto-eating")
 parser.add_argument("--no-relogin", action="store_true", help="Disable auto-reconnect features")
 parser.add_argument("--hotkey-stop", default="q", help="Hotkey to stop bot")
+parser.add_argument("--discord-webhook", default="", help="Discord webhook URL")
 parser.add_argument("--hotkey-pause", default="p", help="Hotkey to pause bot")
 parser.add_argument("--hotkey-force", default="w", help="Hotkey to force home")
 parser.add_argument("--max-time", type=float, help="Override random max runtime (in hours)")
@@ -1637,6 +1639,7 @@ def main():
                         last_crasher_time = current_time
                         if "YELLOW" not in crasher_locs:
                             print("\n[!] CRASHER DETECTED on Magenta! Retreating to Yellow (Backup)...")
+                            send_discord_alert("CRASHER DETECTED on Magenta! Retreating to Yellow (Backup)...", take_screenshot=True)
                             ACTIVE_HOME_LOW  = MARKER_YELLOW_LOW
                             ACTIVE_HOME_HIGH = MARKER_YELLOW_HIGH
                             ACTIVE_HOME_NAME = "Yellow (Backup)"
@@ -1656,6 +1659,7 @@ def main():
                     if "YELLOW" in crasher_locs or "CENTER" in crasher_locs:
                         last_crasher_time = current_time
                         print("\n[!] CRASHER DETECTED on Yellow Backup! Retreating back to Magenta...")
+                        send_discord_alert("CRASHER DETECTED on Yellow Backup! Retreating back to Magenta...", take_screenshot=True)
                         ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                         ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
                         ACTIVE_HOME_NAME = "Magenta (Home)"

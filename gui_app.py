@@ -123,16 +123,22 @@ class OSRSBotGUI(ctk.CTk):
         self.hk_force.grid(row=2, column=1, padx=5, pady=2)
         self.hk_force.insert(0, "w")
 
+        # Discord Webhook
+        ctk.CTkLabel(self.sidebar, text="Discord Webhook URL:", text_color=FG_TAN).grid(row=11, column=0, padx=20, pady=(5, 0), sticky="w")
+        self.webhook_var = ctk.StringVar(value="https://discord.com/api/webhooks/1555210217472401541/gP--d1YouHOBPjOCefx0I0wd4Cg3A20gwyo67_mRaebDRe_Y7NOQfJnaM-t1NO0AyrXu")
+        self.webhook_entry = ctk.CTkEntry(self.sidebar, textvariable=self.webhook_var, width=150, placeholder_text="Optional")
+        self.webhook_entry.grid(row=12, column=0, padx=20, pady=(0, 5), sticky="ew")
+
         # Timer
         self.timer_label = ctk.CTkLabel(self.sidebar, text="Active Runtime: 00:00:00", text_color="#70ff70", font=ctk.CTkFont(weight="bold"))
-        self.timer_label.grid(row=12, column=0, padx=20, pady=(5, 0))
+        self.timer_label.grid(row=13, column=0, padx=20, pady=(5, 0))
 
         # Buttons
         self.start_btn = ctk.CTkButton(self.sidebar, text="[>] START BOT", fg_color="#366b2a", hover_color="#274a1f", text_color="white", font=ctk.CTkFont(weight="bold"), command=self.start_bot)
-        self.start_btn.grid(row=13, column=0, padx=20, pady=(5, 5), sticky="ew")
+        self.start_btn.grid(row=14, column=0, padx=20, pady=(5, 5), sticky="ew")
         
         self.stop_btn = ctk.CTkButton(self.sidebar, text="[X] STOP BOT", fg_color="#852c2c", hover_color="#5e1f1f", text_color="white", font=ctk.CTkFont(weight="bold"), state="disabled", command=self.stop_bot)
-        self.stop_btn.grid(row=14, column=0, padx=20, pady=(0, 5), sticky="ew")
+        self.stop_btn.grid(row=15, column=0, padx=20, pady=(0, 5), sticky="ew")
         
         # --- Main Console Area ---
         self.console_frame = ctk.CTkFrame(self, fg_color=BG_BROWN)
@@ -303,6 +309,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.hk_stop.configure(state="disabled")
         self.hk_pause.configure(state="disabled")
         self.hk_force.configure(state="disabled")
+        self.webhook_entry.configure(state="disabled")
         
         self.textbox.configure(state="normal")
         self.textbox.delete("0.0", "end")
@@ -343,6 +350,9 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         cmd.extend(["--hotkey-stop", self.hk_stop.get()])
         cmd.extend(["--hotkey-pause", self.hk_pause.get()])
         cmd.extend(["--hotkey-force", self.hk_force.get()])
+
+        if self.webhook_var.get().strip():
+            cmd.extend(["--discord-webhook", self.webhook_var.get().strip()])
         
         try:
             # Set PYTHONPATH so scripts inside scripts/ can import vision.py in the root directory
@@ -412,6 +422,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.hk_stop.configure(state="normal")
         self.hk_pause.configure(state="normal")
         self.hk_force.configure(state="normal")
+        self.webhook_entry.configure(state="normal")
 
 if __name__ == "__main__":
     app = OSRSBotGUI()
