@@ -1260,6 +1260,32 @@ def interactive_startup_menu():
             WORLD_CLICK_NAV = not WORLD_CLICK_NAV
             print(f"  -> 3D World Click Nav set to {'ON' if WORLD_CLICK_NAV else 'OFF'}.")
 
+
+def read_xp_tracker():
+    try:
+        from vision import _get_ocr_reader
+        reader = _get_ocr_reader()
+        if not reader:
+            return "N/A (OCR not installed)"
+            
+        region = {
+            "left": GAME_VIEWPORT["left"] + 312,
+            "top": GAME_VIEWPORT["top"],
+            "width": 200,
+            "height": 130
+        }
+        img = capture_region(region)
+        results = reader.readtext(img, detail=0)
+        
+        if not results:
+            return "N/A (No text found)"
+            
+        # Join all text and strip out newlines
+        combined = " ".join(results).replace("\n", " ")
+        return combined if combined else "N/A"
+    except Exception as e:
+        return f"OCR Error"
+
 def get_system_update_timer():
     """
     Checks the bottom-left of the 3D viewport for the yellow "System update in X:XX" text.
@@ -1611,10 +1637,12 @@ def main():
             
             if current_time - last_hourly_report > 3600:
                 last_hourly_report = current_time
+                xp_text = read_xp_tracker()
                 fields = [
                     {"name": "Total Runtime", "value": f"{elapsed/3600:.2f} Hours", "inline": True},
                     {"name": "Loops Executed", "value": str(loop_count), "inline": True},
-                    {"name": "Current Location", "value": ACTIVE_HOME_NAME, "inline": True}
+                    {"name": "Current Location", "value": ACTIVE_HOME_NAME, "inline": True},
+                    {"name": "Skill Progression", "value": xp_text[:100] if xp_text else "N/A", "inline": False}
                 ]
                 send_discord_alert("?? Hourly Status Report", "The bot is still running smoothly.", color=0x9B59B6, take_screenshot=True, fields=fields)
 
