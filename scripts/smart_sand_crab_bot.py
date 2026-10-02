@@ -131,6 +131,7 @@ combat_pot_index = 0
 food_index       = 0
 last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
+last_hourly_report = time.time()
 last_antiban_time = 0
 
 ROUTE_MODE = 3
@@ -140,20 +141,30 @@ import requests
 import io
 import cv2
 
-def send_discord_alert(message, take_screenshot=False):
+def send_discord_alert(title, description, color=0x3498DB, take_screenshot=False, fields=None):
+    """
+    Sends a stylized Discord embed.
+    Colors: Blue (0x3498DB), Green (0x2ECC71), Red (0xE74C3C), Orange (0xE67E22), Purple (0x9B59B6)
+    """
     global DISCORD_WEBHOOK_URL
     if not DISCORD_WEBHOOK_URL:
-        # Fallback to args if possible
         try:
             DISCORD_WEBHOOK_URL = args.discord_webhook
         except:
-            return
-            
+            pass
     if not DISCORD_WEBHOOK_URL:
         return
 
     try:
-        data = {"content": message}
+        embed = {
+            "title": title,
+            "description": description,
+            "color": color,
+            "fields": fields if fields else [],
+            "footer": {"text": "OSRS Smart CV Bot"}
+        }
+        
+        payload = {"embeds": [embed]}
         files = None
         
         if take_screenshot:
@@ -163,11 +174,14 @@ def send_discord_alert(message, take_screenshot=False):
             if is_success:
                 io_buf = io.BytesIO(buffer)
                 files = {"file": ("screenshot.png", io_buf, "image/png")}
+                embed["image"] = {"url": "attachment://screenshot.png"}
                 
+        import json
         if files:
-            requests.post(DISCORD_WEBHOOK_URL, data=data, files=files)
+            # When sending files, payload must be in 'payload_json' field
+            requests.post(DISCORD_WEBHOOK_URL, data={"payload_json": json.dumps(payload)}, files=files)
         else:
-            requests.post(DISCORD_WEBHOOK_URL, json=data)
+            requests.post(DISCORD_WEBHOOK_URL, json=payload)
     except Exception as e:
         print(f"    [!] Failed to send Discord alert: {e}")
 
@@ -489,6 +503,7 @@ def check_health_and_eat():
                 cx = target[0] + inv_region["left"]
                 cy = target[1] + inv_region["top"]
                 print("    [+] Found Green tagged food. Eating...")
+                send_discord_alert("?? Ate Food", "Health dropped low, successfully consumed a green-tagged food item.", color=0x9B59B6)
                 click_at(cx, cy, variation=8)
                 time.sleep(random.gauss(1.2, 0.2))
                 return True
@@ -969,7 +984,7 @@ def reset_aggro():
         walk_to_target(cyan_target, "Cyan (Mid)")
     else:
         print("    [!] Critical Error: Cyan (Mid) marker not found at start.")
-        send_discord_alert("?? **Route Failure:** Cyan (Mid) marker not found at start.", take_screenshot=True)
+        send_discord_alert("?? Route Failure", "Cyan (Mid) marker not found at start.", color=0xE74C3C, take_screenshot=True)
         recover_path()
         return
 
@@ -980,7 +995,7 @@ def reset_aggro():
         time.sleep(random.gauss(2.0, 0.5))
     else:
         print("    [!] Critical Error: Blue (Far) marker not found.")
-        send_discord_alert("?? **Route Failure:** Blue (Far) marker not found.", take_screenshot=True)
+        send_discord_alert("?? Route Failure", "Blue (Far) marker not found.", color=0xE74C3C, take_screenshot=True)
         recover_path()
         return
 
@@ -990,7 +1005,7 @@ def reset_aggro():
         walk_to_target(mid_coord, "Cyan (Mid)")
     else:
         print("    [!] Critical Error: Cyan (Mid) not found on return leg.")
-        send_discord_alert("?? **Route Failure:** Cyan (Mid) not found on return leg.", take_screenshot=True)
+        send_discord_alert("?? Route Failure", "Cyan (Mid) not found on return leg.", color=0xE74C3C, take_screenshot=True)
         recover_path()
         return
 
@@ -1520,11 +1535,11 @@ def check_home_alignment():
 # =============================================================================
 
 def main():
-    global DISCORD_WEBHOOK_URL
+    global DISCORD_WEBHOOK_URL, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time, last_hourly_report
     DISCORD_WEBHOOK_URL = args.discord_webhook
     if DISCORD_WEBHOOK_URL:
         print("[+] Discord Webhook initialized. Sending startup alert...")
-        send_discord_alert("? **Smart Bot Started!** Running with active tracking.", take_screenshot=True)
+        send_discord_alert("? Smart Bot Started", "The bot has successfully hooked the client and is now running.", color=0x2ECC71, take_screenshot=True)
     global loop_count, RESET_TIME, is_running, last_combat_time
     idle_history = []  # Tracks timestamps of recent idles
 
@@ -1591,6 +1606,18 @@ def main():
         try:
             loop_count   += 1
             current_time  = time.time()
+            
+            # Hourly Discord Report
+            
+            if current_time - last_hourly_report > 3600:
+                last_hourly_report = current_time
+                fields = [
+                    {"name": "Total Runtime", "value": f"{elapsed/3600:.2f} Hours", "inline": True},
+                    {"name": "Loops Executed", "value": str(loop_count), "inline": True},
+                    {"name": "Current Location", "value": ACTIVE_HOME_NAME, "inline": True}
+                ]
+                send_discord_alert("?? Hourly Status Report", "The bot is still running smoothly.", color=0x9B59B6, take_screenshot=True, fields=fields)
+
             elapsed       = current_time - start_time
             since_reset   = current_time - last_aggro_reset
             
@@ -1666,6 +1693,8 @@ def main():
             if since_reset > RESET_TIME:
                 if time_out_of_combat > 3:
                     print(f"\n[*] Aggro timer expired ({RESET_TIME/60:.1f} min). Out of combat, resetting now...")
+                    fields = [{"name": "Idle Time", "value": f"{time_out_of_combat}s", "inline": True}, {"name": "Runtime", "value": f"{(current_time - start_time)/3600:.2f}h", "inline": True}]
+                    send_discord_alert("?? Aggression Reset", "Timer expired. Initiating 3-point route to reset aggro.", color=0x3498DB, take_screenshot=False, fields=fields)
                     reset_aggro()
                     last_aggro_reset = time.time()
                     last_combat_time = time.time() # Reset combat timer so we don't spam warning
@@ -1675,7 +1704,7 @@ def main():
                     print(f"    [*] Aggro timer expired, but waiting for current combat to finish before resetting...")
 
             # ── Crasher Protection (Red Tile Detection) ───────────────────────────
-            global ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time
+            
             crasher_locs = is_crasher_present()
             
             if crasher_locs:
@@ -1684,7 +1713,7 @@ def main():
                         last_crasher_time = current_time
                         if "GREEN" not in crasher_locs:
                             print("\n[!] CRASHER DETECTED on Magenta! Retreating to Green (Backup)...")
-                            send_discord_alert("CRASHER DETECTED on Magenta! Retreating to Green (Backup)...", take_screenshot=True)
+                            send_discord_alert("?? Crasher Detected", "An unknown player has encroached on the primary Magenta tile! Retreating to Green (Backup) safety zone.", color=0xE67E22, take_screenshot=True)
                             ACTIVE_HOME_LOW  = MARKER_GREEN_LOW
                             ACTIVE_HOME_HIGH = MARKER_GREEN_HIGH
                             ACTIVE_HOME_NAME = "Green (Backup)"
@@ -1716,6 +1745,7 @@ def main():
             else:
                 if ACTIVE_HOME_NAME == "Green (Backup)" and (current_time - last_crasher_time > 90):
                     print("\n[+] Primary spot (Magenta) clear for 90s! Returning to Magenta (Home)...")
+                    send_discord_alert("? Spot Cleared", "Primary spot (Magenta) has been clear for 90s. Returning to Magenta.", color=0x2ECC71, take_screenshot=False)
                     ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                     ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
                     ACTIVE_HOME_NAME = "Magenta (Home)"
@@ -1763,7 +1793,7 @@ if __name__ == "__main__":
         err_msg = traceback.format_exc()
         print("\n[!] FATAL CRASH:\n" + err_msg)
         try:
-            send_discord_alert(f"?? **FATAL CRASH!** The bot encountered an unhandled exception:\n`python\n{e}\n`", take_screenshot=True)
+            send_discord_alert("?? FATAL CRASH", f"The bot encountered an unhandled exception:\n`python\n{e}\n`", color=0x992D22, take_screenshot=True)
         except:
             pass
         raise
