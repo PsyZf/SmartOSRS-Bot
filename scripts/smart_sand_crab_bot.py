@@ -1693,8 +1693,6 @@ def main():
             if since_reset > RESET_TIME:
                 if time_out_of_combat > 3:
                     print(f"\n[*] Aggro timer expired ({RESET_TIME/60:.1f} min). Out of combat, resetting now...")
-                    fields = [{"name": "Idle Time", "value": f"{time_out_of_combat}s", "inline": True}, {"name": "Runtime", "value": f"{(current_time - start_time)/3600:.2f}h", "inline": True}]
-                    send_discord_alert("?? Aggression Reset", "Timer expired. Initiating 3-point route to reset aggro.", color=0x3498DB, take_screenshot=False, fields=fields)
                     reset_aggro()
                     last_aggro_reset = time.time()
                     last_combat_time = time.time() # Reset combat timer so we don't spam warning
