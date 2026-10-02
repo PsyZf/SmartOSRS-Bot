@@ -71,54 +71,53 @@ def click_at(x, y, variation=3):
     pyautogui.click()
 
 def reset_aggro():
-    print("\n[*] Timer reached! Starting Basic Aggro Reset Route...")
+    print("\n[*] Timer reached! Starting Robust 3-Point Aggro Reset Route...")
     
-    # Check for Yellow to determine 3-point vs 2-point
-    print("    [*] Looking for Yellow marker on Minimap (3-point check)...")
+    MARKER_CYAN_LOW     = (80, 100, 100)
+    MARKER_CYAN_HIGH    = (100, 255, 255)
+    MARKER_BLUE_LOW     = (110, 100, 100)
+    MARKER_BLUE_HIGH    = (130, 255, 255)
+    MARKER_MAGENTA_LOW  = (140, 100, 100)
+    MARKER_MAGENTA_HIGH = (155, 255, 255)
+
+    # 1. Click Cyan
+    print("    [*] Looking for Cyan (Mid) marker on Minimap...")
     img = capture_region(MINIMAP_REGION)
-    yellow_mid_centers = find_color_centers(img, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
-    
-    if yellow_mid_centers:
-        print("    [+] Yellow detected. Executing 3-point route...")
-        cx, cy = yellow_mid_centers[0]
+    cyan_centers = find_color_centers(img, MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+    if cyan_centers:
+        cx, cy = cyan_centers[0]
         click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-        print("    [*] Clicked Yellow. Waiting 10s...")
+        print("    [*] Clicked Cyan. Waiting 10s...")
         time.sleep(10)
-        
-        # Click Green (Far)
-        print("    [*] Looking for Green (Far) marker on Minimap...")
-        img2 = capture_region(MINIMAP_REGION)
-        green_centers = find_color_centers(img2, MARKER_GREEN_LOW, MARKER_GREEN_HIGH)
-        if green_centers:
-            cx, cy = green_centers[0]
-            click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-            print("    [*] Clicked Green. Waiting 12s...")
-            time.sleep(12)
-        else:
-            print("    [!] Could not find Green marker! Aborting route.")
-            return
-            
-        # Click Yellow (Return)
-        print("    [*] Looking for Yellow marker on return...")
-        img3 = capture_region(MINIMAP_REGION)
-        yellow_mid_centers2 = find_color_centers(img3, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
-        if yellow_mid_centers2:
-            cx, cy = yellow_mid_centers2[0]
-            click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-            print("    [*] Clicked Yellow. Waiting 10s...")
-            time.sleep(10)
     else:
-        print("    [-] Yellow not found. Falling back to 2-point Green route...")
-        # Click Green (Far) directly
-        green_centers = find_color_centers(img, MARKER_GREEN_LOW, MARKER_GREEN_HIGH)
-        if green_centers:
-            cx, cy = green_centers[0]
-            click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-            print("    [*] Clicked Green. Waiting 12s...")
-            time.sleep(12)
-        else:
-            print("    [!] Could not find Green marker! Aborting route.")
-            return
+        print("    [!] Could not find Cyan marker! Aborting route.")
+        return
+
+    # 2. Click Blue
+    print("    [*] Looking for Blue (Far) marker on Minimap...")
+    img2 = capture_region(MINIMAP_REGION)
+    blue_centers = find_color_centers(img2, MARKER_BLUE_LOW, MARKER_BLUE_HIGH)
+    if blue_centers:
+        cx, cy = blue_centers[0]
+        click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
+        print("    [*] Clicked Blue. Waiting 12s...")
+        time.sleep(12)
+    else:
+        print("    [!] Could not find Blue marker! Aborting route.")
+        return
+        
+    # 3. Click Cyan Return
+    print("    [*] Looking for Cyan (Mid) marker on return...")
+    img3 = capture_region(MINIMAP_REGION)
+    cyan_centers2 = find_color_centers(img3, MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+    if cyan_centers2:
+        cx, cy = cyan_centers2[0]
+        click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
+        print("    [*] Clicked Cyan. Waiting 10s...")
+        time.sleep(10)
+    else:
+        print("    [!] Could not find Cyan marker on return! Aborting route.")
+        return
 
     # Final Step: Click Magenta (Home)
     print("    [*] Looking for Magenta marker on Minimap to return home...")

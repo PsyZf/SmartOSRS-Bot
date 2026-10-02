@@ -172,8 +172,8 @@ def send_discord_alert(message, take_screenshot=False):
         print(f"    [!] Failed to send Discord alert: {e}")
 
 
-MARKER_YELLOW_LOW  = (22, 100, 100)
-MARKER_YELLOW_HIGH = (35, 255, 255)
+MARKER_GREEN_LOW  = (45, 100, 100)
+MARKER_GREEN_HIGH = (75, 255, 255)
 
 MARKER_MAGENTA_LOW  = (140, 100, 100)
 MARKER_MAGENTA_HIGH = (155, 255, 255)
@@ -787,8 +787,8 @@ def recover_path():
 
     MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (155, 255, 255)
-    MARKER_YELLOW_MID_LOW  = (22, 100, 100)
-    MARKER_YELLOW_MID_HIGH = (35, 255, 255)
+    MARKER_CYAN_LOW  = (80, 100, 100)
+    MARKER_CYAN_HIGH = (100, 255, 255)
     MARKER_BLACK_LOW    = (0, 0, 0)
     MARKER_BLACK_HIGH   = (180, 255, 45)
 
@@ -829,7 +829,7 @@ def recover_path():
             return True
 
         # Priority 2: Yellow (Mid waypoint)
-        c_centers = find_color_centers(img, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH, min_area=min_a, max_area=max_a)
+        c_centers = find_color_centers(img, MARKER_CYAN_LOW, MARKER_CYAN_HIGH, min_area=min_a, max_area=max_a)
         if c_centers:
             closest_c = min(c_centers, key=dist_to_mc)
             print(f"    [+] Recovery: Sighted Yellow (Mid) marker at {closest_c}. Walking to Mid...")
@@ -894,22 +894,20 @@ def recover_path():
 # =============================================================================
 
 def reset_aggro():
-    global ROUTE_MODE
     """
     Aggression reset using minimap ground markers.
     Route:
-      Home -> (Dark Blue OR (Yellow -> Green -> Yellow)) -> Home
+      Home (Magenta/Green) -> Mid (Cyan) -> Far (Blue) -> Mid (Cyan) -> Home
     """
-    MARKER_MAGENTA_LOW  = (140, 100, 100)
-    MARKER_MAGENTA_HIGH = (155, 255, 255)
+    global ROUTE_MODE
     
-    MARKER_YELLOW_MID_LOW  = (22, 100, 100)
-    MARKER_YELLOW_MID_HIGH = (35, 255, 255)
+    MARKER_CYAN_LOW     = (80, 100, 100)
+    MARKER_CYAN_HIGH    = (100, 255, 255)
 
-    MARKER_GREEN_LOW      = (45, 100, 100)
-    MARKER_GREEN_HIGH     = (75, 255, 255)
+    MARKER_BLUE_LOW     = (110, 100, 100)
+    MARKER_BLUE_HIGH    = (130, 255, 255)
 
-    print(f"\n[*] Initiating Sand Crab aggression reset route ({ROUTE_MODE}-point mode)...")
+    print(f"\n[*] Initiating robust 3-point Sand Crab aggression reset route...")
 
     if WORLD_CLICK_NAV:
         offset_x = GAME_VIEWPORT["left"]
@@ -949,8 +947,6 @@ def reset_aggro():
         click_at(*target_coord, variation=4)
         walk_wait = random.gauss(wait_time, 1.0)
         walk_wait = max(7.0, min(12.0, walk_wait))
-        if DEBUG_MODE:
-            print(f"    [DEBUG] Walk_to ({name}) wait: {walk_wait:.2f}s")
         time.sleep(walk_wait)
 
     def poll_marker(color_low, color_high, name, max_wait=20.0):
@@ -966,36 +962,34 @@ def reset_aggro():
         print(f"    [!] {name} marker not found.")
         return None
 
-    do_3_point = False
-    if ROUTE_MODE == 3:
-        yellow_mid_markers = get_markers(MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
-        if yellow_mid_markers:
-            do_3_point = True
-            yellow_mid_target = min(yellow_mid_markers, key=lambda pt: pt[1])
-            walk_to_target(yellow_mid_target, "Yellow (Mid)")
-        else:
-            print("    [-] No Yellow detected. Falling back to 2-point Green route...")
-            do_3_point = False
-
-    # Execute Far Point (Green)
-    far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
-    if far_coord:
-        walk_to_target(far_coord, "Green (Far)")
-        time.sleep(random.gauss(2.0, 0.5))
+    # Step 1: Walk to Cyan (Mid)
+    cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+    if cyan_markers:
+        cyan_target = min(cyan_markers, key=lambda pt: pt[1])
+        walk_to_target(cyan_target, "Cyan (Mid)")
     else:
-        print("    [!] Critical Error: Green (Far) marker not found.")
+        print("    [!] Critical Error: Cyan (Mid) marker not found at start.")
         recover_path()
         return
 
-    # Execute Return Mid (Yellow) if doing 3-point
-    if do_3_point:
-        mid_coord = poll_marker(MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH, "Yellow (Mid)")
-        if mid_coord:
-            walk_to_target(mid_coord, "Yellow (Mid)")
-        else:
-            print("    [!] Yellow (Mid) not found on return leg.")
-            recover_path()
-            return
+    # Step 2: Walk to Blue (Far)
+    far_coord = poll_marker(MARKER_BLUE_LOW, MARKER_BLUE_HIGH, "Blue (Far)")
+    if far_coord:
+        walk_to_target(far_coord, "Blue (Far)")
+        time.sleep(random.gauss(2.0, 0.5))
+    else:
+        print("    [!] Critical Error: Blue (Far) marker not found.")
+        recover_path()
+        return
+
+    # Step 3: Walk back to Cyan (Mid)
+    mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
+    if mid_coord:
+        walk_to_target(mid_coord, "Cyan (Mid)")
+    else:
+        print("    [!] Critical Error: Cyan (Mid) not found on return leg.")
+        recover_path()
+        return
 
     # Final Step: Walk back to Home
     home_coord = poll_marker(ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME)
@@ -1368,7 +1362,7 @@ def handle_maintenance():
 def is_crasher_present():
     """
     Scans the 3D game world for a Red tile (Player indicator), avoiding health bars.
-    Returns a set of locations where crashers were found: e.g. {"MAGENTA", "YELLOW", "CENTER"}.
+    Returns a set of locations where crashers were found: e.g. {"MAGENTA", "GREEN", "CENTER"}.
     """
     view_3d = {
         "left": GAME_VIEWPORT["left"],
@@ -1405,9 +1399,9 @@ def is_crasher_present():
     if not crasher_blobs:
         return set()
         
-    # 2. Get Magenta (Home) and Yellow (Backup) blobs
+    # 2. Get Magenta (Home) and Green (Backup) blobs
     magenta_centers = find_color_centers(img, MARKER_MAGENTA_LOW, MARKER_MAGENTA_HIGH, min_area=20, dilate_iters=1)
-    yellow_centers = find_color_centers(img, MARKER_YELLOW_LOW, MARKER_YELLOW_HIGH, min_area=20, dilate_iters=1)
+    green_centers = find_color_centers(img, MARKER_GREEN_LOW, MARKER_GREEN_HIGH, min_area=20, dilate_iters=1)
     
     crasher_locations = set()
     for cx, cy in crasher_blobs:
@@ -1421,9 +1415,9 @@ def is_crasher_present():
                 break
                 
         # Check if crasher is standing on Yellow tile
-        for yx, yy in yellow_centers:
+        for yx, yy in green_centers:
             if math.hypot(cx - yx, cy - yy) < 40:
-                crasher_locations.add("YELLOW")
+                crasher_locations.add("GREEN")
                 found_on_marker = True
                 break
                 
@@ -1685,29 +1679,29 @@ def main():
                 if ACTIVE_HOME_NAME == "Magenta (Home)":
                     if "MAGENTA" in crasher_locs or "CENTER" in crasher_locs:
                         last_crasher_time = current_time
-                        if "YELLOW" not in crasher_locs:
-                            print("\n[!] CRASHER DETECTED on Magenta! Retreating to Yellow (Backup)...")
-                            send_discord_alert("CRASHER DETECTED on Magenta! Retreating to Yellow (Backup)...", take_screenshot=True)
-                            ACTIVE_HOME_LOW  = MARKER_YELLOW_LOW
-                            ACTIVE_HOME_HIGH = MARKER_YELLOW_HIGH
-                            ACTIVE_HOME_NAME = "Yellow (Backup)"
+                        if "GREEN" not in crasher_locs:
+                            print("\n[!] CRASHER DETECTED on Magenta! Retreating to Green (Backup)...")
+                            send_discord_alert("CRASHER DETECTED on Magenta! Retreating to Green (Backup)...", take_screenshot=True)
+                            ACTIVE_HOME_LOW  = MARKER_GREEN_LOW
+                            ACTIVE_HOME_HIGH = MARKER_GREEN_HIGH
+                            ACTIVE_HOME_NAME = "Green (Backup)"
                             for _ in range(3):
                                 if not check_home_alignment():
-                                    print("    [+] Confirmed arrival at Yellow (Backup).")
+                                    print("    [+] Confirmed arrival at Green (Backup).")
                                     break
                                 time.sleep(3.5)
                         else:
-                            print("\n[!] CRASHERS DETECTED ON BOTH MAGENTA AND YELLOW! Staying put for now...")
+                            print("\n[!] CRASHERS DETECTED ON BOTH MAGENTA AND GREEN! Staying put for now...")
                             
-                elif ACTIVE_HOME_NAME == "Yellow (Backup)":
+                elif ACTIVE_HOME_NAME == "Green (Backup)":
                     if "MAGENTA" in crasher_locs:
                         # Someone is still standing on our primary home. Keep the timer fresh so we don't return.
                         last_crasher_time = current_time
                         
-                    if "YELLOW" in crasher_locs or "CENTER" in crasher_locs:
+                    if "GREEN" in crasher_locs or "CENTER" in crasher_locs:
                         last_crasher_time = current_time
-                        print("\n[!] CRASHER DETECTED on Yellow Backup! Retreating back to Magenta...")
-                        send_discord_alert("CRASHER DETECTED on Yellow Backup! Retreating back to Magenta...", take_screenshot=True)
+                        print("\n[!] CRASHER DETECTED on Green Backup! Retreating back to Magenta...")
+                        send_discord_alert("CRASHER DETECTED on Green Backup! Retreating back to Magenta...", take_screenshot=True)
                         ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                         ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
                         ACTIVE_HOME_NAME = "Magenta (Home)"
@@ -1717,7 +1711,7 @@ def main():
                                 break
                             time.sleep(3.5)
             else:
-                if ACTIVE_HOME_NAME == "Yellow (Backup)" and (current_time - last_crasher_time > 90):
+                if ACTIVE_HOME_NAME == "Green (Backup)" and (current_time - last_crasher_time > 90):
                     print("\n[+] Primary spot (Magenta) clear for 90s! Returning to Magenta (Home)...")
                     ACTIVE_HOME_LOW  = MARKER_MAGENTA_LOW
                     ACTIVE_HOME_HIGH = MARKER_MAGENTA_HIGH
