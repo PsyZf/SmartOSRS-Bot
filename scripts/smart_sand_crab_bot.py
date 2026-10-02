@@ -857,16 +857,14 @@ def reset_aggro():
     """
     Aggression reset using minimap ground markers.
     Route:
-      Home (Magenta) -> Mid (Cyan, if visible) -> Far (Blue) -> Mid (Cyan, if visible) -> Home (Magenta)
+      Home (Magenta) -> Far (Dark Blue) -> Home (Magenta)
     """
     MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (155, 255, 255)
     
-    MARKER_CYAN_LOW     = (80, 100, 100)
-    MARKER_CYAN_HIGH    = (100, 255, 255)
-
-    MARKER_GREEN_LOW     = (45, 100, 100)
-    MARKER_GREEN_HIGH    = (75, 255, 255)
+    # We use Dark Blue for the Far point to avoid colliding with the Cyan/Green World Map icon
+    MARKER_DARK_BLUE_LOW  = (110, 100, 100)
+    MARKER_DARK_BLUE_HIGH = (130, 255, 255)
 
     print("\n[*] Initiating Sand Crab aggression reset route...")
 
@@ -928,44 +926,29 @@ def reset_aggro():
         print(f"    [!] {name} marker not found.")
         return None
 
-    # Step 1: Walk to Cyan (Mid) if visible
-    cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
-    if cyan_markers:
-        print("    [+] Cyan (Mid) marker detected. Initiating 3-point route...")
-        cyan_target = min(cyan_markers, key=lambda pt: pt[1])
-        walk_to_target(cyan_target, "Cyan (Mid)")
-    else:
-        print("    [-] No Cyan (Mid) marker detected. Initiating 2-point route...")
-
-    # Step 2: Walk to Green (Far)
-    far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
+    # Step 1: Walk to Dark Blue (Far) to reset aggro
+    print("    [*] Initiating 2-point route. Scanning for Dark Blue (Far) marker...")
+    far_coord = poll_marker(MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH, "Dark Blue (Far)")
     if far_coord:
-        walk_to_target(far_coord, "Green (Far)")
+        walk_to_target(far_coord, "Dark Blue (Far)")
         time.sleep(random.gauss(2.0, 0.5))  # Brief pause at Far point to ensure aggro boundary reset
     else:
-        print("    [!] Critical Error: Green (Far) marker not found. Cannot reset aggro properly.")
+        print("    [!] Critical Error: Dark Blue (Far) marker not found. Cannot reset aggro properly.")
         recover_path()
         return
 
-    # Step 3: Walk back to Cyan (Mid) if we used it
-    if cyan_markers:
-        mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
-        if mid_coord:
-            walk_to_target(mid_coord, "Cyan (Mid)")
-        else:
-            recover_path()
-            return
-
-    # Step 4: Walk back to Home
+    # Step 2: Walk back to Home
     home_coord = poll_marker(ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME)
     if home_coord:
         walk_to_target(home_coord, ACTIVE_HOME_NAME)
     else:
-        print("    [!] Home marker not found!")
+        print(f"    [!] {ACTIVE_HOME_NAME} marker not found!")
         recover_path()
         return
 
-    print("[*] Aggro reset complete. Verifying home tile alignment...")
+    print(f"[+] Aggro reset complete. Returning to {ACTIVE_HOME_NAME}...")
+
+    # Wait a moment for movement to finish, then force a precise alignment check
     time.sleep(2.0)
     check_home_alignment()
     time.sleep(3.0)
