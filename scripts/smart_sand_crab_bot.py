@@ -969,6 +969,7 @@ def reset_aggro():
         walk_to_target(cyan_target, "Cyan (Mid)")
     else:
         print("    [!] Critical Error: Cyan (Mid) marker not found at start.")
+        send_discord_alert("?? **Route Failure:** Cyan (Mid) marker not found at start.", take_screenshot=True)
         recover_path()
         return
 
@@ -979,6 +980,7 @@ def reset_aggro():
         time.sleep(random.gauss(2.0, 0.5))
     else:
         print("    [!] Critical Error: Blue (Far) marker not found.")
+        send_discord_alert("?? **Route Failure:** Blue (Far) marker not found.", take_screenshot=True)
         recover_path()
         return
 
@@ -988,6 +990,7 @@ def reset_aggro():
         walk_to_target(mid_coord, "Cyan (Mid)")
     else:
         print("    [!] Critical Error: Cyan (Mid) not found on return leg.")
+        send_discord_alert("?? **Route Failure:** Cyan (Mid) not found on return leg.", take_screenshot=True)
         recover_path()
         return
 
@@ -1752,5 +1755,15 @@ def main():
 
 if __name__ == "__main__":
     pyautogui.FAILSAFE = False
-    pyautogui.PAUSE    = 0   # We handle all timing manually for full control
-    main()
+    pyautogui.PAUSE    = 0
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        print("\n[!] FATAL CRASH:\n" + err_msg)
+        try:
+            send_discord_alert(f"?? **FATAL CRASH!** The bot encountered an unhandled exception:\n`python\n{e}\n`", take_screenshot=True)
+        except:
+            pass
+        raise
