@@ -1269,10 +1269,10 @@ def read_xp_tracker():
             return "N/A (OCR not installed)"
             
         region = {
-            "left": GAME_VIEWPORT["left"] + 312,
-            "top": GAME_VIEWPORT["top"],
-            "width": 200,
-            "height": 130
+            "left": GAME_VIEWPORT["left"] + 332,
+            "top": GAME_VIEWPORT["top"] + 60,
+            "width": 180,
+            "height": 150
         }
         img = capture_region(region)
         results = reader.readtext(img, detail=0)
