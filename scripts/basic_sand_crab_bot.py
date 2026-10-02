@@ -14,8 +14,8 @@ import threading
 # BASIC BOT CONFIGURATION
 # =============================================================================
 
-MARKER_CYAN_LOW       = (80, 100, 100)
-MARKER_CYAN_HIGH      = (100, 255, 255)
+MARKER_YELLOW_MID_LOW  = (22, 100, 100)
+MARKER_YELLOW_MID_HIGH = (35, 255, 255)
 MARKER_GREEN_LOW      = (45, 100, 100)
 MARKER_GREEN_HIGH     = (75, 255, 255)
 MARKER_GREEN_LOW  = (45, 100, 100)
@@ -73,16 +73,16 @@ def click_at(x, y, variation=3):
 def reset_aggro():
     print("\n[*] Timer reached! Starting Basic Aggro Reset Route...")
     
-    # Check for Cyan to determine 3-point vs 2-point
-    print("    [*] Looking for Cyan marker on Minimap (3-point check)...")
+    # Check for Yellow to determine 3-point vs 2-point
+    print("    [*] Looking for Yellow marker on Minimap (3-point check)...")
     img = capture_region(MINIMAP_REGION)
-    cyan_centers = find_color_centers(img, MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+    yellow_mid_centers = find_color_centers(img, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
     
-    if cyan_centers:
-        print("    [+] Cyan detected. Executing 3-point route...")
-        cx, cy = cyan_centers[0]
+    if yellow_mid_centers:
+        print("    [+] Yellow detected. Executing 3-point route...")
+        cx, cy = yellow_mid_centers[0]
         click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-        print("    [*] Clicked Cyan. Waiting 10s...")
+        print("    [*] Clicked Yellow. Waiting 10s...")
         time.sleep(10)
         
         # Click Green (Far)
@@ -98,17 +98,17 @@ def reset_aggro():
             print("    [!] Could not find Green marker! Aborting route.")
             return
             
-        # Click Cyan (Return)
-        print("    [*] Looking for Cyan marker on return...")
+        # Click Yellow (Return)
+        print("    [*] Looking for Yellow marker on return...")
         img3 = capture_region(MINIMAP_REGION)
-        cyan_centers2 = find_color_centers(img3, MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
-        if cyan_centers2:
-            cx, cy = cyan_centers2[0]
+        yellow_mid_centers2 = find_color_centers(img3, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
+        if yellow_mid_centers2:
+            cx, cy = yellow_mid_centers2[0]
             click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
-            print("    [*] Clicked Cyan. Waiting 10s...")
+            print("    [*] Clicked Yellow. Waiting 10s...")
             time.sleep(10)
     else:
-        print("    [-] Cyan not found. Falling back to 2-point Green route...")
+        print("    [-] Yellow not found. Falling back to 2-point Green route...")
         # Click Green (Far) directly
         green_centers = find_color_centers(img, MARKER_GREEN_LOW, MARKER_GREEN_HIGH)
         if green_centers:

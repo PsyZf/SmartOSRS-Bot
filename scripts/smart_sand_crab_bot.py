@@ -773,7 +773,7 @@ def handle_reconnect():
 def recover_path():
     """
     Emergency recovery if lost or stuck.
-    1. Checks if any primary route markers (Magenta, Cyan) are in view.
+    1. Checks if any primary route markers (Magenta, Yellow) are in view.
        If so, navigates back along the route to Home.
     2. If no route markers are in view, follows the closest Black breadcrumb, then
        immediately re-scans for route markers.
@@ -787,8 +787,8 @@ def recover_path():
 
     MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (155, 255, 255)
-    MARKER_CYAN_LOW     = (80, 100, 100)
-    MARKER_CYAN_HIGH    = (100, 255, 255)
+    MARKER_YELLOW_MID_LOW  = (22, 100, 100)
+    MARKER_YELLOW_MID_HIGH = (35, 255, 255)
     MARKER_BLACK_LOW    = (0, 0, 0)
     MARKER_BLACK_HIGH   = (180, 255, 45)
 
@@ -828,11 +828,11 @@ def recover_path():
             time.sleep(random.gauss(8.5, 0.7))
             return True
 
-        # Priority 2: Cyan (Mid waypoint)
-        c_centers = find_color_centers(img, MARKER_CYAN_LOW, MARKER_CYAN_HIGH, min_area=min_a, max_area=max_a)
+        # Priority 2: Yellow (Mid waypoint)
+        c_centers = find_color_centers(img, MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH, min_area=min_a, max_area=max_a)
         if c_centers:
             closest_c = min(c_centers, key=dist_to_mc)
-            print(f"    [+] Recovery: Sighted Cyan (Mid) marker at {closest_c}. Walking to Mid...")
+            print(f"    [+] Recovery: Sighted Yellow (Mid) marker at {closest_c}. Walking to Mid...")
             click_at(closest_c[0] + offset_x, closest_c[1] + offset_y, variation=4)
             time.sleep(random.gauss(8.5, 0.6))
             
@@ -898,13 +898,13 @@ def reset_aggro():
     """
     Aggression reset using minimap ground markers.
     Route:
-      Home -> (Dark Blue OR (Cyan -> Green -> Cyan)) -> Home
+      Home -> (Dark Blue OR (Yellow -> Green -> Yellow)) -> Home
     """
     MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (155, 255, 255)
     
-    MARKER_CYAN_LOW       = (80, 100, 100)
-    MARKER_CYAN_HIGH      = (100, 255, 255)
+    MARKER_YELLOW_MID_LOW  = (22, 100, 100)
+    MARKER_YELLOW_MID_HIGH = (35, 255, 255)
 
     MARKER_GREEN_LOW      = (45, 100, 100)
     MARKER_GREEN_HIGH     = (75, 255, 255)
@@ -968,13 +968,13 @@ def reset_aggro():
 
     do_3_point = False
     if ROUTE_MODE == 3:
-        cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
-        if cyan_markers:
+        yellow_mid_markers = get_markers(MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH)
+        if yellow_mid_markers:
             do_3_point = True
-            cyan_target = min(cyan_markers, key=lambda pt: pt[1])
-            walk_to_target(cyan_target, "Cyan (Mid)")
+            yellow_mid_target = min(yellow_mid_markers, key=lambda pt: pt[1])
+            walk_to_target(yellow_mid_target, "Yellow (Mid)")
         else:
-            print("    [-] No Cyan detected. Falling back to 2-point Green route...")
+            print("    [-] No Yellow detected. Falling back to 2-point Green route...")
             do_3_point = False
 
     # Execute Far Point (Green)
@@ -987,13 +987,13 @@ def reset_aggro():
         recover_path()
         return
 
-    # Execute Return Mid (Cyan) if doing 3-point
+    # Execute Return Mid (Yellow) if doing 3-point
     if do_3_point:
-        mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
+        mid_coord = poll_marker(MARKER_YELLOW_MID_LOW, MARKER_YELLOW_MID_HIGH, "Yellow (Mid)")
         if mid_coord:
-            walk_to_target(mid_coord, "Cyan (Mid)")
+            walk_to_target(mid_coord, "Yellow (Mid)")
         else:
-            print("    [!] Cyan (Mid) not found on return leg.")
+            print("    [!] Yellow (Mid) not found on return leg.")
             recover_path()
             return
 
