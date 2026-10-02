@@ -123,6 +123,11 @@ class OSRSBotGUI(ctk.CTk):
         self.hk_force.grid(row=2, column=1, padx=5, pady=2)
         self.hk_force.insert(0, "w")
 
+        ctk.CTkLabel(hotkeys_frame, text="Route Toggle:", text_color=FG_TAN).grid(row=3, column=0, padx=5, pady=2, sticky="w")
+        self.hk_route = ctk.CTkEntry(hotkeys_frame, width=40, justify="center")
+        self.hk_route.grid(row=3, column=1, padx=5, pady=2)
+        self.hk_route.insert(0, "r")
+
         # Discord Webhook
         ctk.CTkLabel(self.sidebar, text="Discord Webhook URL:", text_color=FG_TAN).grid(row=11, column=0, padx=20, pady=(5, 0), sticky="w")
         self.webhook_var = ctk.StringVar(value="https://discord.com/api/webhooks/1555210217472401541/gP--d1YouHOBPjOCefx0I0wd4Cg3A20gwyo67_mRaebDRe_Y7NOQfJnaM-t1NO0AyrXu")
@@ -309,6 +314,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.hk_stop.configure(state="disabled")
         self.hk_pause.configure(state="disabled")
         self.hk_force.configure(state="disabled")
+        self.hk_route.configure(state="disabled")
         self.webhook_entry.configure(state="disabled")
         
         self.textbox.configure(state="normal")
@@ -350,6 +356,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         cmd.extend(["--hotkey-stop", self.hk_stop.get()])
         cmd.extend(["--hotkey-pause", self.hk_pause.get()])
         cmd.extend(["--hotkey-force", self.hk_force.get()])
+        cmd.extend(["--hotkey-route", self.hk_route.get()])
 
         if self.webhook_var.get().strip():
             cmd.extend(["--discord-webhook", self.webhook_var.get().strip()])
@@ -422,6 +429,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         self.hk_stop.configure(state="normal")
         self.hk_pause.configure(state="normal")
         self.hk_force.configure(state="normal")
+        self.hk_route.configure(state="normal")
         self.webhook_entry.configure(state="normal")
 
 if __name__ == "__main__":

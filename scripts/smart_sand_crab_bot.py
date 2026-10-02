@@ -24,6 +24,7 @@ parser.add_argument("--no-pots", action="store_true", help="Disable combat potio
 parser.add_argument("--no-food", action="store_true", help="Disable auto-eating")
 parser.add_argument("--no-relogin", action="store_true", help="Disable auto-reconnect features")
 parser.add_argument("--hotkey-stop", default="q", help="Hotkey to stop bot")
+parser.add_argument("--hotkey-route", default="r", help="Hotkey to toggle route mode")
 parser.add_argument("--discord-webhook", default="", help="Discord webhook URL")
 parser.add_argument("--hotkey-pause", default="p", help="Hotkey to pause bot")
 parser.add_argument("--hotkey-force", default="w", help="Hotkey to force home")
@@ -868,10 +869,7 @@ def reset_aggro():
     MARKER_GREEN_LOW      = (45, 100, 100)
     MARKER_GREEN_HIGH     = (75, 255, 255)
 
-    MARKER_DARK_BLUE_LOW  = (110, 100, 100)
-    MARKER_DARK_BLUE_HIGH = (130, 255, 255)
-
-    print("\n[*] Initiating Sand Crab aggression reset route...")
+    print(f"\n[*] Initiating Sand Crab aggression reset route ({ROUTE_MODE}-point mode)...")
 
     if WORLD_CLICK_NAV:
         offset_x = GAME_VIEWPORT["left"]
@@ -889,19 +887,17 @@ def reset_aggro():
         region   = MINIMAP_REGION
         min_a    = 2
         max_a    = 350
-        
+
     center_screen_x = offset_x + mc_x
     center_screen_y = offset_y + mc_y
 
     def get_markers(low_hsv, high_hsv):
-        """Fresh capture -> absolute screen coords for each marker blob."""
         img     = capture_region(region)
         nonlocal center_screen_x, center_screen_y
         if not WORLD_CLICK_NAV:
             mx, my = get_minimap_center(img, mc_x, mc_y)
             center_screen_x = offset_x + mx
             center_screen_y = offset_y + my
-            
         centers = find_color_centers(img, low_hsv, high_hsv, min_area=min_a, max_area=max_a)
         return [(cx + offset_x, cy + offset_y) for cx, cy in centers]
 
@@ -918,7 +914,6 @@ def reset_aggro():
         time.sleep(walk_wait)
 
     def poll_marker(color_low, color_high, name, max_wait=20.0):
-        """Polls for a marker and returns its closest coordinate to minimap center."""
         print(f"    -> Scanning for {name} marker...")
         waited = 0.0
         POLL_INTERVAL = 1.2
@@ -931,42 +926,36 @@ def reset_aggro():
         print(f"    [!] {name} marker not found.")
         return None
 
-    # Check if Dark Blue (2-point route) is available
-    dark_blue_markers = get_markers(MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH)
-    if dark_blue_markers:
-        print("    [+] Dark Blue marker detected. Executing 2-point route...")
-        far_coord = min(dark_blue_markers, key=lambda pt: pt[1])
-        walk_to_target(far_coord, "Dark Blue (Far)")
-        time.sleep(random.gauss(2.0, 0.5))
-    else:
-        print("    [-] Dark Blue not found. Falling back to 3-point Cyan/Green route...")
-        
-        # Step 1a: Walk to Cyan (Mid)
+    do_3_point = False
+    if ROUTE_MODE == 3:
         cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
         if cyan_markers:
+            do_3_point = True
             cyan_target = min(cyan_markers, key=lambda pt: pt[1])
             walk_to_target(cyan_target, "Cyan (Mid)")
         else:
-            print("    [-] No Cyan (Mid) marker detected.")
+            print("    [-] No Cyan detected. Falling back to 2-point Green route...")
+            do_3_point = False
 
-        # Step 1b: Walk to Green (Far)
-        far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
-        if far_coord:
-            walk_to_target(far_coord, "Green (Far)")
-            time.sleep(random.gauss(2.0, 0.5))
+    # Execute Far Point (Green)
+    far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
+    if far_coord:
+        walk_to_target(far_coord, "Green (Far)")
+        time.sleep(random.gauss(2.0, 0.5))
+    else:
+        print("    [!] Critical Error: Green (Far) marker not found.")
+        recover_path()
+        return
+
+    # Execute Return Mid (Cyan) if doing 3-point
+    if do_3_point:
+        mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
+        if mid_coord:
+            walk_to_target(mid_coord, "Cyan (Mid)")
         else:
-            print("    [!] Critical Error: Green (Far) marker not found.")
+            print("    [!] Cyan (Mid) not found on return leg.")
             recover_path()
             return
-        
-        # Step 1c: Walk back to Cyan (Mid)
-        if cyan_markers:
-            mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
-            if mid_coord:
-                walk_to_target(mid_coord, "Cyan (Mid)")
-            else:
-                recover_path()
-                return
 
     # Final Step: Walk back to Home
     home_coord = poll_marker(ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME)
