@@ -857,12 +857,17 @@ def reset_aggro():
     """
     Aggression reset using minimap ground markers.
     Route:
-      Home (Magenta) -> Far (Dark Blue) -> Home (Magenta)
+      Home -> (Dark Blue OR (Cyan -> Green -> Cyan)) -> Home
     """
     MARKER_MAGENTA_LOW  = (140, 100, 100)
     MARKER_MAGENTA_HIGH = (155, 255, 255)
     
-    # We use Dark Blue for the Far point to avoid colliding with the Cyan/Green World Map icon
+    MARKER_CYAN_LOW       = (80, 100, 100)
+    MARKER_CYAN_HIGH      = (100, 255, 255)
+
+    MARKER_GREEN_LOW      = (45, 100, 100)
+    MARKER_GREEN_HIGH     = (75, 255, 255)
+
     MARKER_DARK_BLUE_LOW  = (110, 100, 100)
     MARKER_DARK_BLUE_HIGH = (130, 255, 255)
 
@@ -926,18 +931,44 @@ def reset_aggro():
         print(f"    [!] {name} marker not found.")
         return None
 
-    # Step 1: Walk to Dark Blue (Far) to reset aggro
-    print("    [*] Initiating 2-point route. Scanning for Dark Blue (Far) marker...")
-    far_coord = poll_marker(MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH, "Dark Blue (Far)")
-    if far_coord:
+    # Check if Dark Blue (2-point route) is available
+    dark_blue_markers = get_markers(MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH)
+    if dark_blue_markers:
+        print("    [+] Dark Blue marker detected. Executing 2-point route...")
+        far_coord = min(dark_blue_markers, key=lambda pt: pt[1])
         walk_to_target(far_coord, "Dark Blue (Far)")
-        time.sleep(random.gauss(2.0, 0.5))  # Brief pause at Far point to ensure aggro boundary reset
+        time.sleep(random.gauss(2.0, 0.5))
     else:
-        print("    [!] Critical Error: Dark Blue (Far) marker not found. Cannot reset aggro properly.")
-        recover_path()
-        return
+        print("    [-] Dark Blue not found. Falling back to 3-point Cyan/Green route...")
+        
+        # Step 1a: Walk to Cyan (Mid)
+        cyan_markers = get_markers(MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+        if cyan_markers:
+            cyan_target = min(cyan_markers, key=lambda pt: pt[1])
+            walk_to_target(cyan_target, "Cyan (Mid)")
+        else:
+            print("    [-] No Cyan (Mid) marker detected.")
 
-    # Step 2: Walk back to Home
+        # Step 1b: Walk to Green (Far)
+        far_coord = poll_marker(MARKER_GREEN_LOW, MARKER_GREEN_HIGH, "Green (Far)")
+        if far_coord:
+            walk_to_target(far_coord, "Green (Far)")
+            time.sleep(random.gauss(2.0, 0.5))
+        else:
+            print("    [!] Critical Error: Green (Far) marker not found.")
+            recover_path()
+            return
+        
+        # Step 1c: Walk back to Cyan (Mid)
+        if cyan_markers:
+            mid_coord = poll_marker(MARKER_CYAN_LOW, MARKER_CYAN_HIGH, "Cyan (Mid)")
+            if mid_coord:
+                walk_to_target(mid_coord, "Cyan (Mid)")
+            else:
+                recover_path()
+                return
+
+    # Final Step: Walk back to Home
     home_coord = poll_marker(ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME)
     if home_coord:
         walk_to_target(home_coord, ACTIVE_HOME_NAME)

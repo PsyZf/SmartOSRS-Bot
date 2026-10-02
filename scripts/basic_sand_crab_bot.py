@@ -14,6 +14,10 @@ import threading
 # BASIC BOT CONFIGURATION
 # =============================================================================
 
+MARKER_CYAN_LOW       = (80, 100, 100)
+MARKER_CYAN_HIGH      = (100, 255, 255)
+MARKER_GREEN_LOW      = (45, 100, 100)
+MARKER_GREEN_HIGH     = (75, 255, 255)
 MARKER_DARK_BLUE_LOW  = (110, 100, 100)
 MARKER_DARK_BLUE_HIGH = (130, 255, 255)
 MARKER_MAGENTA_LOW = (140, 100, 100)
@@ -69,18 +73,40 @@ def click_at(x, y, variation=3):
 def reset_aggro():
     print("\n[*] Timer reached! Starting Basic Aggro Reset Route...")
     
-    # 1. Click Dark Blue (Far)
+    # 1. Try Dark Blue (Far)
     print("    [*] Looking for Dark Blue marker on Minimap...")
     img = capture_region(MINIMAP_REGION)
-    centers = find_color_centers(img, MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH)
-    if centers:
-        cx, cy = centers[0]
+    dark_blue_centers = find_color_centers(img, MARKER_DARK_BLUE_LOW, MARKER_DARK_BLUE_HIGH)
+    
+    if dark_blue_centers:
+        cx, cy = dark_blue_centers[0]
         click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
         print("    [*] Clicked Dark Blue. Waiting 12s to run...")
         time.sleep(12)
     else:
-        print("    [!] Could not find Dark Blue marker! Aborting route.")
-        return
+        print("    [-] Dark Blue not found. Falling back to Cyan/Green 3-point route...")
+        
+        # Click Cyan
+        print("    [*] Looking for Cyan marker on Minimap...")
+        cyan_centers = find_color_centers(img, MARKER_CYAN_LOW, MARKER_CYAN_HIGH)
+        if cyan_centers:
+            cx, cy = cyan_centers[0]
+            click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
+            print("    [*] Clicked Cyan. Waiting 10s to run...")
+            time.sleep(10)
+            
+        # Click Green
+        print("    [*] Looking for Green (Far) marker on Minimap...")
+        img2 = capture_region(MINIMAP_REGION)
+        green_centers = find_color_centers(img2, MARKER_GREEN_LOW, MARKER_GREEN_HIGH)
+        if green_centers:
+            cx, cy = green_centers[0]
+            click_at(MINIMAP_REGION["left"] + cx, MINIMAP_REGION["top"] + cy, variation=2)
+            print("    [*] Clicked Green. Waiting 12s to run...")
+            time.sleep(12)
+        else:
+            print("    [!] Could not find Green marker! Aborting route.")
+            return
 
     # 2. Click Magenta (Home)
     print("    [*] Looking for Magenta marker on Minimap to return home...")
@@ -102,7 +128,7 @@ def main():
     print("========================================")
     print("        BASIC SAND CRAB BOT v1.0        ")
     print("========================================")
-    print("This bot blindly runs the Magenta -> Dark Blue -> Magenta route every 10 minutes.")
+    print("This bot blindly runs the Dynamic 2-Point or 3-Point route every 10 minutes.")
     print("No crash detection, no login handling, no HP checking.")
     print("Ensure you are in Fixed - Classic layout.")
     print("Starting in 3 seconds...")
