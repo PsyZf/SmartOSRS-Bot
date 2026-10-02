@@ -360,6 +360,8 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
 
         if self.webhook_var.get().strip():
             cmd.extend(["--discord-webhook", self.webhook_var.get().strip()])
+        if self.token_var.get().strip():
+            cmd.extend(["--discord-token", self.token_var.get().strip()])
         
         try:
             # Set PYTHONPATH so scripts inside scripts/ can import vision.py in the root directory

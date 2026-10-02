@@ -26,6 +26,7 @@ parser.add_argument("--no-relogin", action="store_true", help="Disable auto-reco
 parser.add_argument("--hotkey-stop", default="q", help="Hotkey to stop bot")
 parser.add_argument("--hotkey-route", default="r", help="Hotkey to toggle route mode")
 parser.add_argument("--discord-webhook", default="", help="Discord webhook URL")
+parser.add_argument("--discord-token", default="", help="Discord Bot Token")
 parser.add_argument("--hotkey-pause", default="p", help="Hotkey to pause bot")
 parser.add_argument("--hotkey-force", default="w", help="Hotkey to force home")
 parser.add_argument("--max-time", type=float, help="Override random max runtime (in hours)")
@@ -1559,6 +1560,83 @@ def check_home_alignment():
 # =============================================================================
 # MAIN LOOP
 # =============================================================================
+
+
+# =============================================================================
+# DISCORD BOT LISTENER (2-WAY)
+# =============================================================================
+discord_bot_thread = None
+discord_cmd_pause = False
+
+def start_discord_bot(token):
+    try:
+        import discord
+        from discord.ext import commands
+        import asyncio
+    except ImportError:
+        print("[!] discord.py not installed. Cannot run bot listener.")
+        return
+
+    intents = discord.Intents.default()
+    intents.message_content = True
+    bot = commands.Bot(command_prefix="!", intents=intents)
+
+    @bot.event
+    async def on_ready():
+        print(f"\n[+] Discord Bot Connected as {bot.user}")
+        print("[+] Try typing !status, !screenshot, !pause, or !stop in your Discord channel!")
+
+    @bot.command()
+    async def status(ctx):
+        global loop_count, start_time, ACTIVE_HOME_NAME
+        elapsed = time.time() - start_time
+        xp_text = read_xp_tracker()
+        embed = discord.Embed(title="?? Status Request", color=0x9B59B6)
+        embed.add_field(name="Runtime", value=f"{elapsed/3600:.2f} Hours", inline=True)
+        embed.add_field(name="Loops", value=str(loop_count), inline=True)
+        embed.add_field(name="Location", value=ACTIVE_HOME_NAME, inline=True)
+        if xp_text and "N/A" not in xp_text:
+            embed.add_field(name="Skill Progression", value=xp_text[:100], inline=False)
+        await ctx.send(embed=embed)
+
+    @bot.command()
+    async def screenshot(ctx):
+        img = capture_region(GAME_VIEWPORT)
+        import cv2, io
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        is_success, buffer = cv2.imencode(".png", img_bgr)
+        if is_success:
+            io_buf = io.BytesIO(buffer)
+            file = discord.File(io_buf, filename="screenshot.png")
+            embed = discord.Embed(title="?? Screen Capture", color=0x3498DB)
+            embed.set_image(url="attachment://screenshot.png")
+            await ctx.send(file=file, embed=embed)
+        else:
+            await ctx.send("Failed to capture screenshot.")
+
+    @bot.command()
+    async def pause(ctx):
+        global discord_cmd_pause
+        discord_cmd_pause = not discord_cmd_pause
+        if discord_cmd_pause:
+            await ctx.send("?? **Bot Paused!** Send !pause again to resume.")
+        else:
+            await ctx.send("?? **Bot Resumed!**")
+
+    @bot.command()
+    async def stop(ctx):
+        global is_running
+        is_running = False
+        await ctx.send("?? **Bot Stopping!** Shutting down safely...")
+
+    def run_asyncio_loop():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(token))
+        
+    import threading
+    t = threading.Thread(target=run_asyncio_loop, daemon=True)
+    t.start()
 
 def main():
     global DISCORD_WEBHOOK_URL, ACTIVE_HOME_LOW, ACTIVE_HOME_HIGH, ACTIVE_HOME_NAME, last_crasher_time, last_hourly_report
