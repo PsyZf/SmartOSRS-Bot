@@ -1523,6 +1523,11 @@ def check_home_alignment():
 # =============================================================================
 
 def main():
+    global DISCORD_WEBHOOK_URL
+    DISCORD_WEBHOOK_URL = args.discord_webhook
+    if DISCORD_WEBHOOK_URL:
+        print("[+] Discord Webhook initialized. Sending startup alert...")
+        send_discord_alert("? **Smart Bot Started!** Running with active tracking.", take_screenshot=True)
     global loop_count, RESET_TIME, is_running, last_combat_time
     idle_history = []  # Tracks timestamps of recent idles
 
@@ -1752,6 +1757,6 @@ def main():
     print("\n[+] Bot stopped successfully.")
 
 if __name__ == "__main__":
-    pyautogui.FAILSAFE = True
+    pyautogui.FAILSAFE = False
     pyautogui.PAUSE    = 0   # We handle all timing manually for full control
     main()
