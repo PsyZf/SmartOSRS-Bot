@@ -133,6 +133,45 @@ last_pot_time    = time.time()  # Start timer now, don't drink immediately
 last_combat_time = time.time()
 last_antiban_time = 0
 
+ROUTE_MODE = 3
+DISCORD_WEBHOOK_URL = ""
+
+import requests
+import io
+import cv2
+
+def send_discord_alert(message, take_screenshot=False):
+    global DISCORD_WEBHOOK_URL
+    if not DISCORD_WEBHOOK_URL:
+        # Fallback to args if possible
+        try:
+            DISCORD_WEBHOOK_URL = args.discord_webhook
+        except:
+            return
+            
+    if not DISCORD_WEBHOOK_URL:
+        return
+
+    try:
+        data = {"content": message}
+        files = None
+        
+        if take_screenshot:
+            img = capture_region(GAME_VIEWPORT)
+            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            is_success, buffer = cv2.imencode(".png", img_bgr)
+            if is_success:
+                io_buf = io.BytesIO(buffer)
+                files = {"file": ("screenshot.png", io_buf, "image/png")}
+                
+        if files:
+            requests.post(DISCORD_WEBHOOK_URL, data=data, files=files)
+        else:
+            requests.post(DISCORD_WEBHOOK_URL, json=data)
+    except Exception as e:
+        print(f"    [!] Failed to send Discord alert: {e}")
+
+
 MARKER_YELLOW_LOW  = (22, 100, 100)
 MARKER_YELLOW_HIGH = (35, 255, 255)
 
@@ -855,6 +894,7 @@ def recover_path():
 # =============================================================================
 
 def reset_aggro():
+    global ROUTE_MODE
     """
     Aggression reset using minimap ground markers.
     Route:
