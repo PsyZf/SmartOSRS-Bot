@@ -356,7 +356,7 @@ We use OpenCV to navigate. You must mark ground tiles exactly with these colors:
         cmd.extend(["--hotkey-stop", self.hk_stop.get()])
         cmd.extend(["--hotkey-pause", self.hk_pause.get()])
         cmd.extend(["--hotkey-force", self.hk_force.get()])
-        cmd.extend(["--hotkey-route", self.hk_route.get()])
+        # removed hotkey-route
 
         if self.webhook_var.get().strip():
             cmd.extend(["--discord-webhook", self.webhook_var.get().strip()])

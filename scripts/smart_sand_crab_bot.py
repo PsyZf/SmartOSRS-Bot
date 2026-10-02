@@ -1643,6 +1643,8 @@ def main():
     DISCORD_WEBHOOK_URL = args.discord_webhook
     if DISCORD_WEBHOOK_URL:
         print("[+] Discord Webhook initialized. Sending startup alert...")
+    if args.discord_token:
+        start_discord_bot(args.discord_token)
         send_discord_alert("? Smart Bot Started", "The bot has successfully hooked the client and is now running.", color=0x2ECC71, take_screenshot=True)
     global loop_count, RESET_TIME, is_running, last_combat_time
     idle_history = []  # Tracks timestamps of recent idles
